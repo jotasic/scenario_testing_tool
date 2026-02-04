@@ -149,10 +149,29 @@ function formatResponse(
   response: AxiosResponse,
   duration: number
 ): HttpResponse {
+  // Convert AxiosHeaders to plain object to ensure serialization
+  // AxiosHeaders is a class instance that Redux cannot serialize
+  const headers: Record<string, string> = {};
+  if (response.headers) {
+    // Handle both AxiosHeaders object and plain object
+    // AxiosHeaders has toJSON method that returns plain object
+    const headersObj = typeof response.headers.toJSON === 'function'
+      ? response.headers.toJSON()
+      : response.headers;
+
+    for (const [key, value] of Object.entries(headersObj)) {
+      if (typeof value === 'string') {
+        headers[key] = value;
+      } else if (Array.isArray(value)) {
+        headers[key] = value.join(', ');
+      }
+    }
+  }
+
   return {
     status: response.status,
     statusText: response.statusText,
-    headers: response.headers as Record<string, string>,
+    headers,
     data: response.data,
     duration,
   };
