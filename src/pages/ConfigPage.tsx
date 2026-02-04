@@ -3,7 +3,7 @@
  * Configuration mode page with server/scenario/step editors
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Box, Paper, Typography, Divider } from '@mui/material';
 import {
   Storage as StorageIcon,
@@ -14,6 +14,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { EmptyState } from '@/components/common/EmptyState';
 import { StepEditor } from '@/components/steps/StepEditor';
 import { ServerEditor } from '@/components/servers/ServerEditor';
+import { AddServerDialog } from '@/components/servers/AddServerDialog';
+import { AddStepDialog } from '@/components/steps/AddStepDialog';
 import FlowCanvas from '@/components/flow/FlowCanvas';
 import {
   useServers,
@@ -25,8 +27,9 @@ import {
   useSelectedServer,
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
-import { setSelectedServer } from '@/store/serversSlice';
-import { updateStep, addEdge, deleteEdge, deleteStep } from '@/store/scenariosSlice';
+import { addServer, setSelectedServer } from '@/store/serversSlice';
+import { updateStep, addEdge, deleteEdge, deleteStep, addStep } from '@/store/scenariosSlice';
+import type { Server, Step } from '@/types';
 
 export function ConfigPage() {
   const dispatch = useAppDispatch();
@@ -36,6 +39,10 @@ export function ConfigPage() {
   const steps = useCurrentSteps();
   const selectedStepId = useSelectedStepId();
   const selectedServer = useSelectedServer();
+
+  // Dialog states
+  const [addServerDialogOpen, setAddServerDialogOpen] = useState(false);
+  const [addStepDialogOpen, setAddStepDialogOpen] = useState(false);
 
   const handleItemClick = (sectionId: string, itemId: string) => {
     if (sectionId === 'servers') {
@@ -48,14 +55,31 @@ export function ConfigPage() {
   };
 
   const handleAddServer = () => {
-    // TODO: Open add server dialog
-    console.log('Add server clicked');
+    setAddServerDialogOpen(true);
   };
 
   const handleAddStep = () => {
-    // TODO: Open add step dialog
-    console.log('Add step clicked');
+    setAddStepDialogOpen(true);
   };
+
+  const handleServerAdd = useCallback(
+    (server: Server) => {
+      dispatch(addServer(server));
+      dispatch(setSelectedServer(server.id));
+      dispatch(setSelectedStep(null));
+    },
+    [dispatch]
+  );
+
+  const handleStepAdd = useCallback(
+    (step: Step) => {
+      if (!currentScenario) return;
+      dispatch(addStep({ scenarioId: currentScenario.id, step }));
+      dispatch(setSelectedStep(step.id));
+      dispatch(setSelectedServer(null));
+    },
+    [dispatch, currentScenario]
+  );
 
   /**
    * Handle node click in graph - select step for editing
@@ -264,6 +288,22 @@ export function ConfigPage() {
           )}
         </Box>
       </Box>
+
+      {/* Dialogs */}
+      <AddServerDialog
+        open={addServerDialogOpen}
+        onClose={() => setAddServerDialogOpen(false)}
+        onAdd={handleServerAdd}
+      />
+
+      {currentScenario && (
+        <AddStepDialog
+          open={addStepDialogOpen}
+          existingSteps={steps}
+          onClose={() => setAddStepDialogOpen(false)}
+          onAdd={handleStepAdd}
+        />
+      )}
     </Box>
   );
 }
