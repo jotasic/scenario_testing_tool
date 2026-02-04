@@ -18,6 +18,8 @@ import {
   Collapse,
   Divider,
   Tooltip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Info,
@@ -27,6 +29,7 @@ import {
   Clear,
   ExpandMore,
   ExpandLess,
+  ContentCopy,
 } from '@mui/icons-material';
 import { useExecutionContext, useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearLogs } from '@/store/executionSlice';
@@ -47,6 +50,7 @@ interface LogItemProps {
 
 function LogItem({ log }: LogItemProps) {
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const config = LOG_LEVEL_CONFIG[log.level];
   const Icon = config.icon;
 
@@ -61,94 +65,163 @@ function LogItem({ log }: LogItemProps) {
     });
   };
 
+  const formatLogForCopy = (): string => {
+    const parts = [
+      `[${formatTimestamp(log.timestamp)}]`,
+      `[${log.level.toUpperCase()}]`,
+    ];
+
+    if (log.stepId) {
+      parts.push(`[${log.stepId}]`);
+    }
+
+    parts.push(log.message);
+
+    if (log.data !== undefined && log.data !== null) {
+      parts.push('\nData:');
+      parts.push(JSON.stringify(log.data, null, 2));
+    }
+
+    return parts.join(' ');
+  };
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(formatLogForCopy());
+      setCopied(true);
+    } catch (err) {
+      console.error('Failed to copy log:', err);
+    }
+  };
+
+  const handleCloseCopiedSnackbar = () => {
+    setCopied(false);
+  };
+
   const hasData = log.data !== undefined && log.data !== null;
 
   return (
-    <ListItem
-      disablePadding
-      sx={{
-        borderLeft: 3,
-        borderColor: `${config.chipColor}.main`,
-        mb: 0.5,
-      }}
-    >
-      <ListItemButton
-        onClick={() => hasData && setExpanded(!expanded)}
-        disabled={!hasData}
-        sx={{ py: 0.5 }}
-      >
-        <Stack direction="row" spacing={1} alignItems="flex-start" width="100%">
-          <Icon
-            fontSize="small"
-            color={config.iconColor}
-            sx={{ mt: 0.5, flexShrink: 0 }}
-          />
-          <Box flex={1} minWidth={0}>
-            <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontFamily: 'monospace', flexShrink: 0 }}
-              >
-                {formatTimestamp(log.timestamp)}
-              </Typography>
-              <Chip
-                label={config.label}
-                size="small"
-                color={config.chipColor}
-                sx={{ height: 18, fontSize: '0.625rem' }}
-              />
-              {log.stepId && (
-                <Chip
-                  label={log.stepId}
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 18, fontSize: '0.625rem' }}
-                />
-              )}
-            </Stack>
-            <Typography
-              variant="body2"
+    <>
+      <ListItem
+        disablePadding
+        sx={{
+          borderLeft: 3,
+          borderColor: `${config.chipColor}.main`,
+          mb: 0.5,
+        }}
+        secondaryAction={
+          <Tooltip title="Copy log entry">
+            <IconButton
+              edge="end"
+              size="small"
+              onClick={handleCopy}
+              aria-label="Copy log entry"
               sx={{
-                wordBreak: 'break-word',
-                whiteSpace: 'pre-wrap',
+                opacity: 0.6,
+                '&:hover': {
+                  opacity: 1,
+                },
               }}
             >
-              {log.message}
-            </Typography>
-            {hasData && (
-              <Collapse in={expanded}>
-                <Box
-                  sx={{
-                    mt: 1,
-                    p: 1,
-                    bgcolor: 'action.hover',
-                    borderRadius: 1,
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    overflow: 'auto',
-                    maxHeight: 200,
-                  }}
+              <ContentCopy fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        }
+      >
+        <ListItemButton
+          onClick={() => hasData && setExpanded(!expanded)}
+          disabled={!hasData}
+          sx={{ py: 0.5, pr: 6 }}
+        >
+          <Stack direction="row" spacing={1} alignItems="flex-start" width="100%">
+            <Icon
+              fontSize="small"
+              color={config.iconColor}
+              sx={{ mt: 0.5, flexShrink: 0 }}
+            />
+            <Box flex={1} minWidth={0}>
+              <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontFamily: 'monospace', flexShrink: 0 }}
                 >
-                  <pre style={{ margin: 0 }}>
-                    {JSON.stringify(log.data, null, 2)}
-                  </pre>
-                </Box>
-              </Collapse>
-            )}
-          </Box>
-          {hasData && (
-            <Box sx={{ flexShrink: 0 }}>
-              {expanded ? (
-                <ExpandLess fontSize="small" />
-              ) : (
-                <ExpandMore fontSize="small" />
+                  {formatTimestamp(log.timestamp)}
+                </Typography>
+                <Chip
+                  label={config.label}
+                  size="small"
+                  color={config.chipColor}
+                  sx={{ height: 18, fontSize: '0.625rem' }}
+                />
+                {log.stepId && (
+                  <Chip
+                    label={log.stepId}
+                    size="small"
+                    variant="outlined"
+                    sx={{ height: 18, fontSize: '0.625rem' }}
+                  />
+                )}
+              </Stack>
+              <Typography
+                variant="body2"
+                sx={{
+                  wordBreak: 'break-word',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {log.message}
+              </Typography>
+              {hasData && (
+                <Collapse in={expanded}>
+                  <Box
+                    sx={{
+                      mt: 1,
+                      p: 1,
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      overflow: 'auto',
+                      maxHeight: 200,
+                    }}
+                  >
+                    <pre style={{ margin: 0 }}>
+                      {JSON.stringify(log.data, null, 2)}
+                    </pre>
+                  </Box>
+                </Collapse>
               )}
             </Box>
-          )}
-        </Stack>
-      </ListItemButton>
-    </ListItem>
+            {hasData && (
+              <Box sx={{ flexShrink: 0 }}>
+                {expanded ? (
+                  <ExpandLess fontSize="small" />
+                ) : (
+                  <ExpandMore fontSize="small" />
+                )}
+              </Box>
+            )}
+          </Stack>
+        </ListItemButton>
+      </ListItem>
+      <Snackbar
+        open={copied}
+        autoHideDuration={2000}
+        onClose={handleCloseCopiedSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseCopiedSnackbar}
+          severity="success"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          Log entry copied to clipboard
+        </Alert>
+      </Snackbar>
+    </>
   );
 }
 
