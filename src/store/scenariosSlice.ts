@@ -93,18 +93,37 @@ const scenariosSlice = createSlice({
     deleteStep: (state, action: PayloadAction<{ scenarioId: string; stepId: string }>) => {
       const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
       if (scenario) {
+        const stepIdToDelete = action.payload.stepId;
+
         // Remove the step
-        scenario.steps = scenario.steps.filter(s => s.id !== action.payload.stepId);
+        scenario.steps = scenario.steps.filter(s => s.id !== stepIdToDelete);
 
         // Remove edges connected to this step
         scenario.edges = scenario.edges.filter(
           e =>
-            e.sourceStepId !== action.payload.stepId &&
-            e.targetStepId !== action.payload.stepId
+            e.sourceStepId !== stepIdToDelete &&
+            e.targetStepId !== stepIdToDelete
         );
 
+        // Clear references from other steps for bidirectional sync
+        scenario.steps.forEach(step => {
+          // Clear branch nextStepId references
+          if ((step.type === 'condition' || step.type === 'request') && step.branches) {
+            step.branches.forEach(branch => {
+              if (branch.nextStepId === stepIdToDelete) {
+                branch.nextStepId = '';
+              }
+            });
+          }
+
+          // Remove from loop/group stepIds
+          if ((step.type === 'loop' || step.type === 'group') && step.stepIds) {
+            step.stepIds = step.stepIds.filter(id => id !== stepIdToDelete);
+          }
+        });
+
         // Update start step if it was deleted
-        if (scenario.startStepId === action.payload.stepId) {
+        if (scenario.startStepId === stepIdToDelete) {
           scenario.startStepId = scenario.steps[0]?.id || '';
         }
 
@@ -130,7 +149,35 @@ const scenariosSlice = createSlice({
     addEdge: (state, action: PayloadAction<{ scenarioId: string; edge: ScenarioEdge }>) => {
       const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
       if (scenario) {
-        scenario.edges.push(action.payload.edge);
+        const edge = action.payload.edge;
+        scenario.edges.push(edge);
+
+        // Sync edge to step properties for bidirectional sync
+        const sourceStep = scenario.steps.find(s => s.id === edge.sourceStepId);
+        if (sourceStep) {
+          const handle = edge.sourceHandle;
+
+          // Branch connections for ConditionStep (handle format: 'branch_0', 'branch_1', etc.)
+          if (handle?.startsWith('branch_') && sourceStep.type === 'condition') {
+            const branchIndex = parseInt(handle.split('_')[1], 10);
+            if (sourceStep.branches && sourceStep.branches[branchIndex]) {
+              sourceStep.branches[branchIndex].nextStepId = edge.targetStepId;
+            }
+          }
+          // Loop body connections
+          else if (handle === 'loop-body' && sourceStep.type === 'loop') {
+            if (!sourceStep.stepIds.includes(edge.targetStepId)) {
+              sourceStep.stepIds.push(edge.targetStepId);
+            }
+          }
+          // Group step connections
+          else if (handle === 'group-body' && sourceStep.type === 'group') {
+            if (!sourceStep.stepIds.includes(edge.targetStepId)) {
+              sourceStep.stepIds.push(edge.targetStepId);
+            }
+          }
+        }
+
         scenario.updatedAt = new Date().toISOString();
       }
     },
@@ -155,6 +202,32 @@ const scenariosSlice = createSlice({
     deleteEdge: (state, action: PayloadAction<{ scenarioId: string; edgeId: string }>) => {
       const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
       if (scenario) {
+        // Find the edge before deleting to sync step properties
+        const edge = scenario.edges.find(e => e.id === action.payload.edgeId);
+
+        if (edge) {
+          const sourceStep = scenario.steps.find(s => s.id === edge.sourceStepId);
+          if (sourceStep) {
+            const handle = edge.sourceHandle;
+
+            // Clear branch nextStepId
+            if (handle?.startsWith('branch_') && sourceStep.type === 'condition') {
+              const branchIndex = parseInt(handle.split('_')[1], 10);
+              if (sourceStep.branches && sourceStep.branches[branchIndex]) {
+                sourceStep.branches[branchIndex].nextStepId = '';
+              }
+            }
+            // Remove from loop stepIds
+            else if (handle === 'loop-body' && sourceStep.type === 'loop') {
+              sourceStep.stepIds = sourceStep.stepIds.filter(id => id !== edge.targetStepId);
+            }
+            // Remove from group stepIds
+            else if (handle === 'group-body' && sourceStep.type === 'group') {
+              sourceStep.stepIds = sourceStep.stepIds.filter(id => id !== edge.targetStepId);
+            }
+          }
+        }
+
         scenario.edges = scenario.edges.filter(e => e.id !== action.payload.edgeId);
         scenario.updatedAt = new Date().toISOString();
       }

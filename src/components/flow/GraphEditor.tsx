@@ -9,7 +9,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { NodeChange, EdgeChange, Connection } from 'reactflow';
 import { useAppDispatch } from '@/store/hooks';
 import { addStep, deleteStep, updateStep, addEdge, deleteEdge } from '@/store/scenariosSlice';
-import type { Scenario, Step, StepType, StepExecutionResult } from '@/types';
+import { createDefaultStep, getNewNodePosition } from '@/utils/stepFactory';
+import type { Scenario, StepType, StepExecutionResult } from '@/types';
 import FlowCanvas from './FlowCanvas';
 import NodeToolbar from './NodeToolbar';
 
@@ -28,85 +29,6 @@ interface GraphEditorProps {
   showMinimap?: boolean;
   /** Whether to show the grid */
   showGrid?: boolean;
-}
-
-/**
- * Create a default step based on type
- */
-function createDefaultStep(type: StepType, position: { x: number; y: number }): Step {
-  const baseStep = {
-    id: uuidv4(),
-    type,
-    name: `New ${type.charAt(0).toUpperCase()}${type.slice(1)}`,
-    description: '',
-    executionMode: 'auto' as const,
-    position,
-  };
-
-  switch (type) {
-    case 'request':
-      return {
-        ...baseStep,
-        type: 'request',
-        serverId: '',
-        method: 'GET',
-        endpoint: '/',
-        headers: [],
-        waitForResponse: true,
-        saveResponse: true,
-      };
-
-    case 'condition':
-      return {
-        ...baseStep,
-        type: 'condition',
-        branches: [],
-      };
-
-    case 'loop':
-      return {
-        ...baseStep,
-        type: 'loop',
-        loop: {
-          id: uuidv4(),
-          type: 'count',
-          count: 1,
-        },
-        stepIds: [],
-      };
-
-    case 'group':
-      return {
-        ...baseStep,
-        type: 'group',
-        stepIds: [],
-        collapsed: false,
-      };
-
-    default:
-      throw new Error(`Unknown step type: ${type}`);
-  }
-}
-
-/**
- * Calculate center position for new nodes based on viewport
- * Falls back to a default position if viewport is not available
- */
-function getNewNodePosition(existingSteps: Step[]): { x: number; y: number } {
-  // If no existing steps, start at a default position
-  if (existingSteps.length === 0) {
-    return { x: 250, y: 100 };
-  }
-
-  // Find the rightmost and bottommost positions
-  const maxX = Math.max(...existingSteps.map(s => s.position.x));
-  const maxY = Math.max(...existingSteps.map(s => s.position.y));
-
-  // Place new node offset from the last one
-  return {
-    x: maxX + 50,
-    y: maxY + 50,
-  };
 }
 
 export default function GraphEditor({
