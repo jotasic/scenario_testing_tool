@@ -43,7 +43,11 @@ const STATUS_CONFIG: Record<
   cancelled: { color: 'default', label: 'Cancelled' },
 };
 
-export function ExecutionControls() {
+interface ExecutionControlsProps {
+  params?: Record<string, unknown>;
+}
+
+export function ExecutionControls({ params: externalParams }: ExecutionControlsProps) {
   const dispatch = useAppDispatch();
   const context = useExecutionContext();
   const status = useExecutionStatus();
@@ -61,9 +65,9 @@ export function ExecutionControls() {
   const handleStart = () => {
     if (!scenario) return;
 
-    // Execute scenario with current parameters
+    // Execute scenario with external params (from ExecutionPage) or context params
     executeScenario(
-      context?.params || {},
+      externalParams || context?.params || {},
       context?.stepModeOverrides || {}
     );
   };

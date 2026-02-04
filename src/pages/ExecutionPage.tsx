@@ -3,15 +3,16 @@
  * Execution mode page with flow visualization, controls, and logs
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Box, Paper, Tabs, Tab, IconButton, Tooltip, Stack } from '@mui/material';
 import { FlowCanvas } from '@/components/flow';
 import { ExecutionControls } from '@/components/execution/ExecutionControls';
 import { ExecutionLogs } from '@/components/execution/ExecutionLogs';
 import { StepResultViewer } from '@/components/execution/StepResultViewer';
+import { ManualStepDialog } from '@/components/execution/ManualStepDialog';
 import { ParameterInputPanel } from '@/components/parameters/ParameterInputPanel';
 import { EmptyState } from '@/components/common/EmptyState';
-import { useCurrentScenario, useSelectedStepId, useAppDispatch } from '@/store/hooks';
+import { useCurrentScenario, useSelectedStepId, useAppDispatch, useExecutionStatus, useCurrentExecutionStep, useStepResult } from '@/store/hooks';
 import { autoLayoutSteps } from '@/store/scenariosSlice';
 import {
   PlayArrow as PlayArrowIcon,
@@ -23,7 +24,40 @@ export function ExecutionPage() {
   const dispatch = useAppDispatch();
   const currentScenario = useCurrentScenario();
   const selectedStepId = useSelectedStepId();
+  const executionStatus = useExecutionStatus();
+  const currentStep = useCurrentExecutionStep();
+  const currentStepResult = useStepResult(currentStep?.id);
   const [rightPanelTab, setRightPanelTab] = useState<'params' | 'result' | 'logs'>('params');
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+
+  // Show manual step dialog when execution is paused and current step is waiting
+  useEffect(() => {
+    if (executionStatus === 'paused' && currentStepResult?.status === 'waiting') {
+      setManualDialogOpen(true);
+    }
+  }, [executionStatus, currentStepResult?.status]);
+
+  // Initialize params from parameterSchema defaultValues
+  const [params, setParams] = useState<Record<string, unknown>>(() => {
+    const initialParams: Record<string, unknown> = {};
+    currentScenario?.parameterSchema?.forEach(schema => {
+      if (schema.defaultValue !== undefined) {
+        initialParams[schema.name] = schema.defaultValue;
+      }
+    });
+    return initialParams;
+  });
+
+  // Update params when scenario changes
+  useEffect(() => {
+    const initialParams: Record<string, unknown> = {};
+    currentScenario?.parameterSchema?.forEach(schema => {
+      if (schema.defaultValue !== undefined) {
+        initialParams[schema.name] = schema.defaultValue;
+      }
+    });
+    setParams(initialParams);
+  }, [currentScenario?.id, currentScenario?.parameterSchema]);
 
   const handleAutoLayout = useCallback(
     (direction: 'TB' | 'LR') => {
@@ -59,7 +93,7 @@ export function ExecutionPage() {
           flexShrink: 0,
         }}
       >
-        <ExecutionControls />
+        <ExecutionControls params={params} />
       </Paper>
 
       {/* Main Content: Flow + Right Panel */}
@@ -129,7 +163,7 @@ export function ExecutionPage() {
               <ParameterInputPanel
                 schemas={currentScenario.parameterSchema || []}
                 onApply={(values) => {
-                  console.log('Parameters applied:', values);
+                  setParams(values);
                 }}
               />
             )}
@@ -149,6 +183,12 @@ export function ExecutionPage() {
           </Box>
         </Box>
       </Box>
+
+      {/* Manual Step Dialog */}
+      <ManualStepDialog
+        open={manualDialogOpen}
+        onClose={() => setManualDialogOpen(false)}
+      />
     </Box>
   );
 }
