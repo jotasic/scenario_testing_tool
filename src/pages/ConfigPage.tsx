@@ -18,6 +18,7 @@ import {
   ListItemText,
   Collapse,
   Divider,
+  Chip,
 } from '@mui/material';
 import {
   Storage as StorageIcon,
@@ -27,6 +28,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Add as AddIcon,
+  Settings as ParametersIcon,
 } from '@mui/icons-material';
 import type { NodeChange, EdgeChange, Connection } from 'reactflow';
 import { ResizablePanels } from '@/components/layout/ResizablePanels';
@@ -35,6 +37,7 @@ import { StepEditor } from '@/components/steps/StepEditor';
 import { ServerEditor } from '@/components/servers/ServerEditor';
 import { AddServerDialog } from '@/components/servers/AddServerDialog';
 import { AddStepDialog } from '@/components/steps/AddStepDialog';
+import { ParameterSchemaEditor } from '@/components/parameters/ParameterSchemaEditor';
 import FlowCanvas from '@/components/flow/FlowCanvas';
 import {
   useServers,
@@ -46,8 +49,8 @@ import {
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { addServer, setSelectedServer } from '@/store/serversSlice';
-import { updateStep, addEdge, deleteEdge, deleteStep, addStep, autoLayoutSteps } from '@/store/scenariosSlice';
-import type { Server, Step } from '@/types';
+import { updateStep, addEdge, deleteEdge, deleteStep, addStep, autoLayoutSteps, setParameterSchema } from '@/store/scenariosSlice';
+import type { Server, Step, ParameterSchema } from '@/types';
 
 export function ConfigPage() {
   const dispatch = useAppDispatch();
@@ -65,7 +68,11 @@ export function ConfigPage() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     servers: true,
     steps: true,
+    parameters: true,
   });
+
+  // Editor panel mode
+  const [editorMode, setEditorMode] = useState<'item' | 'parameters'>('item');
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
@@ -78,11 +85,27 @@ export function ConfigPage() {
     if (sectionId === 'servers') {
       dispatch(setSelectedServer(itemId));
       dispatch(setSelectedStep(null));
+      setEditorMode('item');
     } else if (sectionId === 'steps') {
       dispatch(setSelectedStep(itemId));
       dispatch(setSelectedServer(null));
+      setEditorMode('item');
     }
   };
+
+  const handleParametersClick = () => {
+    dispatch(setSelectedServer(null));
+    dispatch(setSelectedStep(null));
+    setEditorMode('parameters');
+  };
+
+  const handleParameterSchemaChange = useCallback(
+    (schemas: ParameterSchema[]) => {
+      if (!currentScenario) return;
+      dispatch(setParameterSchema({ scenarioId: currentScenario.id, schema: schemas }));
+    },
+    [dispatch, currentScenario]
+  );
 
   const handleAddServer = () => {
     setAddServerDialogOpen(true);
@@ -330,6 +353,31 @@ export function ConfigPage() {
               )}
             </List>
           </Collapse>
+
+          <Divider />
+
+          {/* Parameters Section */}
+          {currentScenario && (
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={editorMode === 'parameters'}
+                onClick={handleParametersClick}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <ParametersIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Parameters"
+                  primaryTypographyProps={{ variant: 'subtitle2', fontWeight: 600 }}
+                />
+                <Chip
+                  label={currentScenario.parameterSchema?.length || 0}
+                  size="small"
+                  sx={{ ml: 1 }}
+                />
+              </ListItemButton>
+            </ListItem>
+          )}
         </List>
       </Box>
     </Box>
@@ -347,36 +395,46 @@ export function ConfigPage() {
         bgcolor: 'background.paper',
       }}
     >
-      <Paper
-        elevation={0}
-        sx={{
-          p: 1.5,
-          borderBottom: 1,
-          borderColor: 'divider',
-          flexShrink: 0,
-        }}
-      >
-        <Typography variant="subtitle2" fontWeight={600} noWrap>
-          {selectedServer
-            ? `Server: ${selectedServer.name}`
-            : selectedStepId
-            ? `Step: ${steps.find(s => s.id === selectedStepId)?.name || 'Unknown'}`
-            : 'Configuration'}
-        </Typography>
-      </Paper>
-      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-        {selectedServer ? (
-          <ServerEditor server={selectedServer} />
-        ) : selectedStepId ? (
-          <StepEditor />
-        ) : (
-          <EmptyState
-            icon={ListAltIcon}
-            title="No Selection"
-            message="Select a server or step to edit."
-          />
-        )}
-      </Box>
+      {editorMode === 'parameters' && currentScenario ? (
+        <ParameterSchemaEditor
+          schemas={currentScenario.parameterSchema || []}
+          steps={steps}
+          onChange={handleParameterSchemaChange}
+        />
+      ) : (
+        <>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 1.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+              flexShrink: 0,
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600} noWrap>
+              {selectedServer
+                ? `Server: ${selectedServer.name}`
+                : selectedStepId
+                ? `Step: ${steps.find(s => s.id === selectedStepId)?.name || 'Unknown'}`
+                : 'Configuration'}
+            </Typography>
+          </Paper>
+          <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+            {selectedServer ? (
+              <ServerEditor server={selectedServer} />
+            ) : selectedStepId ? (
+              <StepEditor />
+            ) : (
+              <EmptyState
+                icon={ListAltIcon}
+                title="No Selection"
+                message="Select a server or step to edit."
+              />
+            )}
+          </Box>
+        </>
+      )}
     </Box>
   );
 
