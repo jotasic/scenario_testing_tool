@@ -3,21 +3,36 @@
  * Execution mode page with flow visualization, controls, and logs
  */
 
-import { useState } from 'react';
-import { Box, Paper, Tabs, Tab } from '@mui/material';
+import { useState, useCallback } from 'react';
+import { Box, Paper, Tabs, Tab, IconButton, Tooltip, Stack } from '@mui/material';
 import { FlowCanvas } from '@/components/flow';
 import { ExecutionControls } from '@/components/execution/ExecutionControls';
 import { ExecutionLogs } from '@/components/execution/ExecutionLogs';
 import { StepResultViewer } from '@/components/execution/StepResultViewer';
 import { ParameterInputPanel } from '@/components/parameters/ParameterInputPanel';
 import { EmptyState } from '@/components/common/EmptyState';
-import { useCurrentScenario, useSelectedStepId } from '@/store/hooks';
-import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
+import { useCurrentScenario, useSelectedStepId, useAppDispatch } from '@/store/hooks';
+import { autoLayoutSteps } from '@/store/scenariosSlice';
+import {
+  PlayArrow as PlayArrowIcon,
+  ViewStream as VerticalIcon,
+  ViewColumn as HorizontalIcon,
+} from '@mui/icons-material';
 
 export function ExecutionPage() {
+  const dispatch = useAppDispatch();
   const currentScenario = useCurrentScenario();
   const selectedStepId = useSelectedStepId();
   const [rightPanelTab, setRightPanelTab] = useState<'params' | 'result' | 'logs'>('params');
+
+  const handleAutoLayout = useCallback(
+    (direction: 'TB' | 'LR') => {
+      if (currentScenario) {
+        dispatch(autoLayoutSteps({ scenarioId: currentScenario.id, direction }));
+      }
+    },
+    [dispatch, currentScenario]
+  );
 
   // Show empty state if no scenario
   if (!currentScenario) {
@@ -56,8 +71,35 @@ export function ExecutionPage() {
             height: '100%',
             borderRight: 1,
             borderColor: 'divider',
+            position: 'relative',
           }}
         >
+          {/* Auto Layout Buttons */}
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              position: 'absolute',
+              top: 10,
+              left: 10,
+              zIndex: 10,
+              bgcolor: 'background.paper',
+              borderRadius: 1,
+              boxShadow: 1,
+              p: 0.5,
+            }}
+          >
+            <Tooltip title="Auto-arrange (Top to Bottom)">
+              <IconButton size="small" onClick={() => handleAutoLayout('TB')}>
+                <VerticalIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Auto-arrange (Left to Right)">
+              <IconButton size="small" onClick={() => handleAutoLayout('LR')}>
+                <HorizontalIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
           <FlowCanvas scenario={currentScenario} readonly={true} />
         </Box>
 

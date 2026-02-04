@@ -1,16 +1,35 @@
 /**
  * ConfigPage Component
- * Configuration mode page with server/scenario/step editors
+ * Configuration mode page with 3-column resizable layout: Sidebar - Editor - Graph
  */
 
 import { useCallback, useState } from 'react';
-import { Box, Paper, Typography, Divider } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Typography,
+  IconButton,
+  Tooltip,
+  Stack,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Collapse,
+  Divider,
+} from '@mui/material';
 import {
   Storage as StorageIcon,
   ListAlt as ListAltIcon,
+  ViewStream as VerticalIcon,
+  ViewColumn as HorizontalIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import type { NodeChange, EdgeChange, Connection } from 'reactflow';
-import { Sidebar } from '@/components/layout/Sidebar';
+import { ResizablePanels } from '@/components/layout/ResizablePanels';
 import { EmptyState } from '@/components/common/EmptyState';
 import { StepEditor } from '@/components/steps/StepEditor';
 import { ServerEditor } from '@/components/servers/ServerEditor';
@@ -23,17 +42,15 @@ import {
   useCurrentSteps,
   useSelectedStepId,
   useAppDispatch,
-  useSidebarOpen,
   useSelectedServer,
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { addServer, setSelectedServer } from '@/store/serversSlice';
-import { updateStep, addEdge, deleteEdge, deleteStep, addStep } from '@/store/scenariosSlice';
+import { updateStep, addEdge, deleteEdge, deleteStep, addStep, autoLayoutSteps } from '@/store/scenariosSlice';
 import type { Server, Step } from '@/types';
 
 export function ConfigPage() {
   const dispatch = useAppDispatch();
-  const sidebarOpen = useSidebarOpen();
   const servers = useServers();
   const currentScenario = useCurrentScenario();
   const steps = useCurrentSteps();
@@ -43,6 +60,19 @@ export function ConfigPage() {
   // Dialog states
   const [addServerDialogOpen, setAddServerDialogOpen] = useState(false);
   const [addStepDialogOpen, setAddStepDialogOpen] = useState(false);
+
+  // Sidebar section expand states
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    servers: true,
+    steps: true,
+  });
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }));
+  };
 
   const handleItemClick = (sectionId: string, itemId: string) => {
     if (sectionId === 'servers') {
@@ -81,9 +111,15 @@ export function ConfigPage() {
     [dispatch, currentScenario]
   );
 
-  /**
-   * Handle node click in graph - select step for editing
-   */
+  const handleAutoLayout = useCallback(
+    (direction: 'TB' | 'LR') => {
+      if (currentScenario) {
+        dispatch(autoLayoutSteps({ scenarioId: currentScenario.id, direction }));
+      }
+    },
+    [dispatch, currentScenario]
+  );
+
   const handleNodeClick = useCallback(
     (stepId: string) => {
       dispatch(setSelectedStep(stepId));
@@ -92,16 +128,12 @@ export function ConfigPage() {
     [dispatch]
   );
 
-  /**
-   * Handle node position changes and deletions in graph
-   */
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       if (!currentScenario) return;
 
       changes.forEach(change => {
         if (change.type === 'position' && change.position && !change.dragging) {
-          // Only update position when drag is complete
           dispatch(
             updateStep({
               scenarioId: currentScenario.id,
@@ -110,7 +142,6 @@ export function ConfigPage() {
             })
           );
         } else if (change.type === 'remove') {
-          // User deleted a node with Delete key
           dispatch(
             deleteStep({
               scenarioId: currentScenario.id,
@@ -123,16 +154,12 @@ export function ConfigPage() {
     [dispatch, currentScenario]
   );
 
-  /**
-   * Handle edge deletions in graph
-   */
   const handleEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       if (!currentScenario) return;
 
       changes.forEach(change => {
         if (change.type === 'remove') {
-          // User deleted an edge
           dispatch(
             deleteEdge({
               scenarioId: currentScenario.id,
@@ -145,15 +172,11 @@ export function ConfigPage() {
     [dispatch, currentScenario]
   );
 
-  /**
-   * Handle new connections in graph
-   */
   const handleConnect = useCallback(
     (connection: Connection) => {
       if (!currentScenario) return;
       if (!connection.source || !connection.target) return;
 
-      // Create new edge
       const newEdge = {
         id: `edge_${Date.now()}`,
         sourceStepId: connection.source,
@@ -171,123 +194,290 @@ export function ConfigPage() {
     [dispatch, currentScenario]
   );
 
-  const sidebarSections = [
-    {
-      id: 'servers',
-      title: 'Servers',
-      icon: <StorageIcon />,
-      items: servers.map(server => ({
-        id: server.id,
-        label: server.name,
-      })),
-      onAddClick: handleAddServer,
-    },
-    {
-      id: 'steps',
-      title: 'Steps',
-      icon: <ListAltIcon />,
-      items: steps.map(step => ({
-        id: step.id,
-        label: step.name,
-      })),
-      onAddClick: currentScenario ? handleAddStep : undefined,
-    },
-  ];
-
   const getSelectedItemId = () => {
     return selectedServer?.id || selectedStepId || null;
   };
 
-  return (
-    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* Left Sidebar */}
-      <Sidebar
-        sections={sidebarSections}
-        selectedItemId={getSelectedItemId()}
-        onItemClick={handleItemClick}
-      />
-
-      {/* Main Content Area */}
-      <Box
+  // Sidebar Panel Content
+  const SidebarPanel = (
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRight: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Paper
+        elevation={0}
         sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          ml: sidebarOpen ? 0 : 0,
-          transition: 'margin-left 0.3s ease',
+          p: 1.5,
+          borderBottom: 1,
+          borderColor: 'divider',
+          flexShrink: 0,
         }}
       >
-        {/* Top Section: Scenario Info */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            borderBottom: 1,
-            borderColor: 'divider',
-          }}
-        >
-          {currentScenario ? (
-            <Box>
-              <Typography variant="h6">{currentScenario.name}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {currentScenario.description || 'No description'}
-              </Typography>
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No scenario selected. Create or load a scenario to begin.
+        <Typography variant="subtitle2" fontWeight={600}>
+          Resources
+        </Typography>
+      </Paper>
+      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+        <List disablePadding>
+          {/* Servers Section */}
+          <ListItem
+            disablePadding
+            secondaryAction={
+              <IconButton edge="end" size="small" onClick={handleAddServer}>
+                <AddIcon fontSize="small" />
+              </IconButton>
+            }
+          >
+            <ListItemButton onClick={() => toggleSection('servers')}>
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <StorageIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="Servers"
+                primaryTypographyProps={{ variant: 'subtitle2', fontWeight: 600 }}
+              />
+              {expandedSections.servers ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </ListItemButton>
+          </ListItem>
+          <Collapse in={expandedSections.servers} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {servers.length > 0 ? (
+                servers.map(server => (
+                  <ListItemButton
+                    key={server.id}
+                    sx={{ pl: 4 }}
+                    selected={getSelectedItemId() === server.id}
+                    onClick={() => handleItemClick('servers', server.id)}
+                  >
+                    <ListItemText
+                      primary={server.name}
+                      primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                    />
+                  </ListItemButton>
+                ))
+              ) : (
+                <ListItem sx={{ pl: 4 }}>
+                  <ListItemText
+                    primary="No servers"
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      color: 'text.secondary',
+                      fontStyle: 'italic',
+                    }}
+                  />
+                </ListItem>
+              )}
+            </List>
+          </Collapse>
+
+          <Divider />
+
+          {/* Steps Section */}
+          <ListItem
+            disablePadding
+            secondaryAction={
+              currentScenario && (
+                <IconButton edge="end" size="small" onClick={handleAddStep}>
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              )
+            }
+          >
+            <ListItemButton onClick={() => toggleSection('steps')}>
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <ListAltIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="Steps"
+                primaryTypographyProps={{ variant: 'subtitle2', fontWeight: 600 }}
+              />
+              {expandedSections.steps ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </ListItemButton>
+          </ListItem>
+          <Collapse in={expandedSections.steps} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {steps.length > 0 ? (
+                steps.map(step => (
+                  <ListItemButton
+                    key={step.id}
+                    sx={{ pl: 4 }}
+                    selected={getSelectedItemId() === step.id}
+                    onClick={() => handleItemClick('steps', step.id)}
+                  >
+                    <ListItemText
+                      primary={step.name}
+                      primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                    />
+                  </ListItemButton>
+                ))
+              ) : (
+                <ListItem sx={{ pl: 4 }}>
+                  <ListItemText
+                    primary="No steps"
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      color: 'text.secondary',
+                      fontStyle: 'italic',
+                    }}
+                  />
+                </ListItem>
+              )}
+            </List>
+          </Collapse>
+        </List>
+      </Box>
+    </Box>
+  );
+
+  // Editor Panel Content
+  const EditorPanel = (
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRight: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1.5,
+          borderBottom: 1,
+          borderColor: 'divider',
+          flexShrink: 0,
+        }}
+      >
+        <Typography variant="subtitle2" fontWeight={600} noWrap>
+          {selectedServer
+            ? `Server: ${selectedServer.name}`
+            : selectedStepId
+            ? `Step: ${steps.find(s => s.id === selectedStepId)?.name || 'Unknown'}`
+            : 'Configuration'}
+        </Typography>
+      </Paper>
+      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+        {selectedServer ? (
+          <ServerEditor server={selectedServer} />
+        ) : selectedStepId ? (
+          <StepEditor />
+        ) : (
+          <EmptyState
+            icon={ListAltIcon}
+            title="No Selection"
+            message="Select a server or step to edit."
+          />
+        )}
+      </Box>
+    </Box>
+  );
+
+  // Graph Panel Content
+  const GraphPanel = (
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: 'background.default',
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1.5,
+          borderBottom: 1,
+          borderColor: 'divider',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="subtitle2" fontWeight={600} noWrap>
+            {currentScenario?.name || 'Scenario Flow'}
+          </Typography>
+          {currentScenario?.description && (
+            <Typography variant="caption" color="text.secondary" noWrap display="block">
+              {currentScenario.description}
             </Typography>
           )}
-        </Paper>
-
-        <Divider />
-
-        {/* Middle Section: Graph Editor (60% height) */}
-        {currentScenario && (
-          <Box
-            sx={{
-              height: '60%',
-              minHeight: 400,
-              borderBottom: 1,
-              borderColor: 'divider',
-            }}
-          >
-            <FlowCanvas
-              scenario={currentScenario}
-              selectedStepId={selectedStepId}
-              onNodeClick={handleNodeClick}
-              onNodesChange={handleNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onConnect={handleConnect}
-              readonly={false}
-              showMinimap={true}
-              showGrid={true}
-            />
-          </Box>
-        )}
-
-        <Divider />
-
-        {/* Bottom Section: Editor Area (40% height) */}
-        <Box sx={{ flexGrow: 1, overflow: 'auto', minHeight: 200 }}>
-          {selectedServer ? (
-            <ServerEditor server={selectedServer} />
-          ) : selectedStepId ? (
-            <StepEditor />
-          ) : (
-            <EmptyState
-              icon={ListAltIcon}
-              title="No Selection"
-              message={
-                currentScenario
-                  ? 'Select a server or step from the sidebar to edit its configuration, or click a node in the graph above.'
-                  : 'Select a server or step from the sidebar to edit its configuration.'
-              }
-            />
-          )}
         </Box>
+        {currentScenario && (
+          <Stack direction="row" spacing={0.5} sx={{ ml: 1, flexShrink: 0 }}>
+            <Tooltip title="Auto-arrange (Top to Bottom)">
+              <IconButton size="small" onClick={() => handleAutoLayout('TB')}>
+                <VerticalIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Auto-arrange (Left to Right)">
+              <IconButton size="small" onClick={() => handleAutoLayout('LR')}>
+                <HorizontalIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        )}
+      </Paper>
+      <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+        {currentScenario ? (
+          <FlowCanvas
+            scenario={currentScenario}
+            selectedStepId={selectedStepId}
+            onNodeClick={handleNodeClick}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onConnect={handleConnect}
+            readonly={false}
+            showMinimap={true}
+            showGrid={true}
+          />
+        ) : (
+          <EmptyState
+            icon={ListAltIcon}
+            title="No Scenario"
+            message="Create or load a scenario to see the flow graph."
+          />
+        )}
       </Box>
+    </Box>
+  );
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
+      <ResizablePanels
+        height="100%"
+        panels={[
+          {
+            key: 'sidebar',
+            initialWidth: 240,
+            minWidth: 180,
+            maxWidth: 400,
+            children: SidebarPanel,
+          },
+          {
+            key: 'editor',
+            initialWidth: 380,
+            minWidth: 280,
+            maxWidth: 600,
+            children: EditorPanel,
+          },
+          {
+            key: 'graph',
+            flex: true,
+            minWidth: 400,
+            children: GraphPanel,
+          },
+        ]}
+      />
 
       {/* Dialogs */}
       <AddServerDialog

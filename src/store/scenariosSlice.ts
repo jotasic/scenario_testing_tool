@@ -7,6 +7,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Scenario, Step, ScenarioEdge, ParameterSchema } from '@/types';
 import sampleScenario from '@/data/sampleScenario';
+import { applyAutoLayout } from '@/utils/graphLayout';
 
 interface ScenariosState {
   scenarios: Scenario[];
@@ -141,6 +142,19 @@ const scenariosSlice = createSlice({
         scenario.steps = action.payload.stepIds
           .map(id => stepMap.get(id))
           .filter((step): step is Step => step !== undefined);
+        scenario.updatedAt = new Date().toISOString();
+      }
+    },
+
+    autoLayoutSteps: (
+      state,
+      action: PayloadAction<{ scenarioId: string; direction?: 'TB' | 'LR' }>
+    ) => {
+      const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
+      if (scenario) {
+        scenario.steps = applyAutoLayout(scenario.steps, scenario.edges, {
+          direction: action.payload.direction || 'TB',
+        });
         scenario.updatedAt = new Date().toISOString();
       }
     },
@@ -319,6 +333,7 @@ export const {
   updateStep,
   deleteStep,
   reorderSteps,
+  autoLayoutSteps,
   addEdge,
   updateEdge,
   deleteEdge,
