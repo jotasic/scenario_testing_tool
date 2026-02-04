@@ -12,6 +12,7 @@ import ReactFlow, {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type Edge,
   type NodeChange,
@@ -95,6 +96,8 @@ function FlowCanvasInner({
   showMinimap = true,
   showGrid = true,
 }: FlowCanvasProps) {
+  const { fitView } = useReactFlow();
+
   // Convert scenario data to React Flow format
   const initialNodes = useMemo(
     () => convertStepsToNodes(scenario.steps, stepResults),
@@ -172,6 +175,19 @@ function FlowCanvasInner({
     [nodes, selectedStepId]
   );
 
+  // Handle initialization - fit view after the flow is ready
+  const handleInit = useCallback(() => {
+    // Use a small timeout to ensure the container has rendered
+    setTimeout(() => {
+      fitView({
+        padding: 0.2,
+        includeHiddenNodes: false,
+        minZoom: 0.1,
+        maxZoom: 1.5,
+      });
+    }, 50);
+  }, [fitView]);
+
   return (
     <Box
       sx={{
@@ -193,8 +209,15 @@ function FlowCanvasInner({
         onEdgesChange={readonly ? undefined : handleEdgesChange}
         onConnect={readonly ? undefined : handleConnect}
         onNodeClick={handleNodeClick}
+        onInit={handleInit}
         nodeTypes={nodeTypes}
         fitView
+        fitViewOptions={{
+          padding: 0.2,
+          includeHiddenNodes: false,
+          minZoom: 0.1,
+          maxZoom: 1.5,
+        }}
         minZoom={0.1}
         maxZoom={2}
         defaultEdgeOptions={{
