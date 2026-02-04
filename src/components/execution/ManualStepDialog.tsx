@@ -17,7 +17,8 @@ import {
 } from '@mui/material';
 import { PlayArrow, SkipNext } from '@mui/icons-material';
 import { useCurrentExecutionStep, useAppDispatch } from '@/store/hooks';
-import { resumeExecution, updateStepResult } from '@/store/executionSlice';
+import { updateStepResult } from '@/store/executionSlice';
+import { useScenarioExecution } from '@/hooks/useScenarioExecution';
 import type { RequestStep } from '@/types';
 
 interface ManualStepDialogProps {
@@ -28,10 +29,11 @@ interface ManualStepDialogProps {
 export function ManualStepDialog({ open, onClose }: ManualStepDialogProps) {
   const dispatch = useAppDispatch();
   const currentStep = useCurrentExecutionStep();
+  const { resumeExecution } = useScenarioExecution();
 
   const handleExecute = () => {
-    // Resume execution - the executor will handle executing the manual step
-    dispatch(resumeExecution());
+    // Resume execution - calls executor.resume() which resolves waitForResume()
+    resumeExecution();
     onClose();
   };
 
@@ -48,7 +50,7 @@ export function ManualStepDialog({ open, onClose }: ManualStepDialogProps) {
     );
 
     // Resume execution to move to next step
-    dispatch(resumeExecution());
+    resumeExecution();
     onClose();
   };
 

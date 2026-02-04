@@ -4,7 +4,7 @@
  * Handles execution lifecycle, callbacks, and manual step dialogs
  */
 
-import { useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { ScenarioExecutor, type ExecutionCallbacks } from '@/engine';
 import {
   useAppDispatch,
@@ -25,6 +25,10 @@ import {
 } from '@/store/executionSlice';
 import type { ExecutionMode, StepExecutionResult, ExecutionLog } from '@/types';
 
+// Global executor instance - shared across all hook consumers
+let globalExecutor: ScenarioExecutor | null = null;
+let globalExecutionPromise: Promise<void> | null = null;
+
 /**
  * Hook for managing scenario execution
  * Integrates the execution engine with Redux and provides control methods
@@ -35,10 +39,6 @@ export function useScenarioExecution() {
   const servers = useServers();
   const executionContext = useExecutionContext();
   const params = useExecutionParams();
-
-  // Store executor instance in ref to maintain across re-renders
-  const executorRef = useRef<ScenarioExecutor | null>(null);
-  const executionPromiseRef = useRef<Promise<void> | null>(null);
 
   /**
    * Create execution callbacks that dispatch to Redux
@@ -92,8 +92,12 @@ export function useScenarioExecution() {
       },
 
       onStatusChange: (status) => {
-        // Status changes are handled by the executor actions
-        if (status === 'completed') {
+        // Sync executor status with Redux
+        if (status === 'paused') {
+          dispatch(pauseExecutionAction());
+        } else if (status === 'running') {
+          dispatch(resumeExecutionAction());
+        } else if (status === 'completed') {
           dispatch(stopExecution('completed'));
         } else if (status === 'failed') {
           dispatch(stopExecution('failed'));
@@ -144,14 +148,14 @@ export function useScenarioExecution() {
         })
       );
 
-      // Create new executor instance
+      // Create new executor instance (global so other components can access it)
       const executor = new ScenarioExecutor(currentScenario, serverMap);
-      executorRef.current = executor;
+      globalExecutor = executor;
 
       // Execute scenario with callbacks
       const callbacks = createCallbacks();
 
-      executionPromiseRef.current = executor
+      globalExecutionPromise = executor
         .execute(parameterValues || params || {}, {
           stepModeOverrides: stepModeOverrides || executionContext?.stepModeOverrides || {},
           callbacks,
@@ -171,8 +175,8 @@ export function useScenarioExecution() {
           );
         })
         .finally(() => {
-          executorRef.current = null;
-          executionPromiseRef.current = null;
+          globalExecutor = null;
+          globalExecutionPromise = null;
         });
     },
     [
@@ -189,8 +193,8 @@ export function useScenarioExecution() {
    * Pause execution
    */
   const pauseExecution = useCallback(() => {
-    if (executorRef.current) {
-      executorRef.current.getControl().pause();
+    if (globalExecutor) {
+      globalExecutor.getControl().pause();
       dispatch(pauseExecutionAction());
     }
   }, [dispatch]);
@@ -199,8 +203,8 @@ export function useScenarioExecution() {
    * Resume execution
    */
   const resumeExecution = useCallback(() => {
-    if (executorRef.current) {
-      executorRef.current.getControl().resume();
+    if (globalExecutor) {
+      globalExecutor.getControl().resume();
       dispatch(resumeExecutionAction());
     }
   }, [dispatch]);
@@ -209,8 +213,8 @@ export function useScenarioExecution() {
    * Stop execution
    */
   const stopExecutionNow = useCallback(() => {
-    if (executorRef.current) {
-      executorRef.current.getControl().stop();
+    if (globalExecutor) {
+      globalExecutor.getControl().stop();
       dispatch(stopExecution('cancelled'));
     }
   }, [dispatch]);
@@ -219,21 +223,21 @@ export function useScenarioExecution() {
    * Check if execution is in progress
    */
   const isExecuting = useCallback(() => {
-    return executorRef.current !== null && executionPromiseRef.current !== null;
+    return globalExecutor !== null && globalExecutionPromise !== null;
   }, []);
 
   /**
    * Check if execution is paused
    */
   const isPaused = useCallback(() => {
-    return executorRef.current?.getControl().isPaused() ?? false;
+    return globalExecutor?.getControl().isPaused() ?? false;
   }, []);
 
   /**
    * Check if execution is stopped
    */
   const isStopped = useCallback(() => {
-    return executorRef.current?.getControl().isStopped() ?? false;
+    return globalExecutor?.getControl().isStopped() ?? false;
   }, []);
 
   return {
@@ -244,6 +248,6 @@ export function useScenarioExecution() {
     isExecuting: isExecuting(),
     isPaused: isPaused(),
     isStopped: isStopped(),
-    executor: executorRef.current,
+    executor: globalExecutor,
   };
 }
