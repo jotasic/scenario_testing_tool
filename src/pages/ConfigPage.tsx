@@ -3,15 +3,18 @@
  * Configuration mode page with server/scenario/step editors
  */
 
+import { useCallback } from 'react';
 import { Box, Paper, Typography, Divider } from '@mui/material';
 import {
   Storage as StorageIcon,
   ListAlt as ListAltIcon,
 } from '@mui/icons-material';
+import type { NodeChange, EdgeChange, Connection } from 'reactflow';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { EmptyState } from '@/components/common/EmptyState';
 import { StepEditor } from '@/components/steps/StepEditor';
 import { ServerEditor } from '@/components/servers/ServerEditor';
+import FlowCanvas from '@/components/flow/FlowCanvas';
 import {
   useServers,
   useCurrentScenario,
@@ -23,6 +26,7 @@ import {
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { setSelectedServer } from '@/store/serversSlice';
+import { updateStep, addEdge, deleteEdge, deleteStep } from '@/store/scenariosSlice';
 
 export function ConfigPage() {
   const dispatch = useAppDispatch();
@@ -52,6 +56,96 @@ export function ConfigPage() {
     // TODO: Open add step dialog
     console.log('Add step clicked');
   };
+
+  /**
+   * Handle node click in graph - select step for editing
+   */
+  const handleNodeClick = useCallback(
+    (stepId: string) => {
+      dispatch(setSelectedStep(stepId));
+      dispatch(setSelectedServer(null));
+    },
+    [dispatch]
+  );
+
+  /**
+   * Handle node position changes and deletions in graph
+   */
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      if (!currentScenario) return;
+
+      changes.forEach(change => {
+        if (change.type === 'position' && change.position && !change.dragging) {
+          // Only update position when drag is complete
+          dispatch(
+            updateStep({
+              scenarioId: currentScenario.id,
+              stepId: change.id,
+              changes: { position: change.position },
+            })
+          );
+        } else if (change.type === 'remove') {
+          // User deleted a node with Delete key
+          dispatch(
+            deleteStep({
+              scenarioId: currentScenario.id,
+              stepId: change.id,
+            })
+          );
+        }
+      });
+    },
+    [dispatch, currentScenario]
+  );
+
+  /**
+   * Handle edge deletions in graph
+   */
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      if (!currentScenario) return;
+
+      changes.forEach(change => {
+        if (change.type === 'remove') {
+          // User deleted an edge
+          dispatch(
+            deleteEdge({
+              scenarioId: currentScenario.id,
+              edgeId: change.id,
+            })
+          );
+        }
+      });
+    },
+    [dispatch, currentScenario]
+  );
+
+  /**
+   * Handle new connections in graph
+   */
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      if (!currentScenario) return;
+      if (!connection.source || !connection.target) return;
+
+      // Create new edge
+      const newEdge = {
+        id: `edge_${Date.now()}`,
+        sourceStepId: connection.source,
+        targetStepId: connection.target,
+        sourceHandle: connection.sourceHandle || undefined,
+      };
+
+      dispatch(
+        addEdge({
+          scenarioId: currentScenario.id,
+          edge: newEdge,
+        })
+      );
+    },
+    [dispatch, currentScenario]
+  );
 
   const sidebarSections = [
     {
@@ -125,8 +219,34 @@ export function ConfigPage() {
 
         <Divider />
 
-        {/* Bottom Section: Editor Area */}
-        <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+        {/* Middle Section: Graph Editor (60% height) */}
+        {currentScenario && (
+          <Box
+            sx={{
+              height: '60%',
+              minHeight: 400,
+              borderBottom: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <FlowCanvas
+              scenario={currentScenario}
+              selectedStepId={selectedStepId}
+              onNodeClick={handleNodeClick}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={handleConnect}
+              readonly={false}
+              showMinimap={true}
+              showGrid={true}
+            />
+          </Box>
+        )}
+
+        <Divider />
+
+        {/* Bottom Section: Editor Area (40% height) */}
+        <Box sx={{ flexGrow: 1, overflow: 'auto', minHeight: 200 }}>
           {selectedServer ? (
             <ServerEditor server={selectedServer} />
           ) : selectedStepId ? (
@@ -135,7 +255,11 @@ export function ConfigPage() {
             <EmptyState
               icon={ListAltIcon}
               title="No Selection"
-              message="Select a server or step from the sidebar to edit its configuration."
+              message={
+                currentScenario
+                  ? 'Select a server or step from the sidebar to edit its configuration, or click a node in the graph above.'
+                  : 'Select a server or step from the sidebar to edit its configuration.'
+              }
             />
           )}
         </Box>
