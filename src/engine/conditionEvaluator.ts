@@ -11,9 +11,13 @@ import type {
   ComparisonOperator,
 } from '../types';
 import type { VariableContext } from './variableResolver';
+import { resolveStringVariables } from './variableResolver';
 
 /**
  * Retrieves the value for a condition from the context
+ *
+ * Resolves variables in the field path before accessing the value.
+ * This allows dynamic field paths like "items[${loop.index}].name".
  *
  * @param condition - Condition to evaluate
  * @param context - Variable context
@@ -23,8 +27,11 @@ function getConditionValue(
   condition: Condition,
   context: VariableContext
 ): unknown {
+  // Resolve variables in the field path (e.g., "items[${loop.index}].name" -> "items[2].name")
+  const resolvedField = resolveStringVariables(condition.field, context);
+
   if (condition.source === 'params') {
-    return get(context.params, condition.field);
+    return get(context.params, resolvedField);
   }
 
   if (condition.source === 'response') {
@@ -32,7 +39,7 @@ function getConditionValue(
     if (!response) {
       return undefined;
     }
-    return get(response, condition.field);
+    return get(response, resolvedField);
   }
 
   return undefined;
@@ -168,6 +175,60 @@ function compareValues(
 }
 
 /**
+ * Attempts to parse a string value into its appropriate type
+ * Handles boolean, number, null, and JSON values
+ *
+ * @param value - String value to parse
+ * @returns Parsed value or original string
+ */
+function parseStringValue(value: string): unknown {
+  // Handle boolean strings
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (value === 'null') return null;
+
+  // Handle numeric strings
+  if (value !== '' && !isNaN(Number(value))) {
+    return Number(value);
+  }
+
+  // Handle JSON objects/arrays
+  if (value.startsWith('{') || value.startsWith('[')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+
+  return value;
+}
+
+/**
+ * Resolves the expected value from condition
+ * If the value is a string containing variable references, resolve them
+ * Also handles type conversion for string values (boolean, number, etc.)
+ *
+ * @param value - Expected value (may contain variable references)
+ * @param context - Variable context
+ * @returns Resolved value
+ */
+function resolveExpectedValue(value: unknown, context: VariableContext): unknown {
+  if (typeof value === 'string') {
+    // Check if the value contains variable references like ${params.xxx} or ${response.xxx}
+    if (value.includes('${')) {
+      const resolved = resolveStringVariables(value, context);
+      return parseStringValue(resolved);
+    }
+
+    // Even without variable references, try to parse the string value
+    // This handles cases like "true", "false", "123" entered in the UI
+    return parseStringValue(value);
+  }
+  return value;
+}
+
+/**
  * Evaluates a single condition
  *
  * @param condition - Condition to evaluate
@@ -179,7 +240,9 @@ export function evaluateSingleCondition(
   context: VariableContext
 ): boolean {
   const actualValue = getConditionValue(condition, context);
-  return compareValues(condition.operator, actualValue, condition.value);
+  // Resolve variable references in expected value (e.g., "${params.expectedStatus}")
+  const expectedValue = resolveExpectedValue(condition.value, context);
+  return compareValues(condition.operator, actualValue, expectedValue);
 }
 
 /**
