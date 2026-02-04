@@ -44,7 +44,8 @@ interface FlowCanvasProps {
 function convertStepsToNodes(
   steps: Step[],
   stepResults?: Record<string, StepExecutionResult>,
-  startStepId?: string
+  startStepId?: string,
+  readonly: boolean = false
 ): Node[] {
   return steps.map(step => {
     const result = stepResults?.[step.id];
@@ -53,12 +54,18 @@ function convertStepsToNodes(
       id: step.id,
       type: step.type,
       position: step.position,
+      // Prevent keyboard deletion of nodes - use UI buttons instead
+      deletable: false,
+      selectable: true,
+      draggable: !readonly,
       data: {
         step,
         status: result?.status,
         currentIteration: result?.currentIteration,
         totalIterations: result?.iterations,
         isStartStep: step.id === startStepId,
+        // Pass all steps for Group and Loop nodes to resolve child steps
+        allSteps: (step.type === 'group' || step.type === 'loop') ? steps : undefined,
       },
     };
   });
@@ -105,8 +112,8 @@ function FlowCanvasInner({
 
   // Convert scenario data to React Flow format
   const initialNodes = useMemo(
-    () => convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId),
-    [scenario.steps, stepResults, scenario.startStepId]
+    () => convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly),
+    [scenario.steps, stepResults, scenario.startStepId, readonly]
   );
 
   const initialEdges = useMemo(
@@ -121,8 +128,8 @@ function FlowCanvasInner({
   // Update nodes when steps or results change
   // Using useEffect instead of useMemo for side effects
   useEffect(() => {
-    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId));
-  }, [scenario.steps, stepResults, scenario.startStepId, setNodes]);
+    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly));
+  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly]);
 
   // Update edges when scenario edges change
   useEffect(() => {
