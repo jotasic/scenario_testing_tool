@@ -64,8 +64,9 @@ export function Sidebar({ sections = [], selectedItemId, onItemClick }: SidebarP
       variant="persistent"
       open={open}
       sx={{
-        width: SIDEBAR_WIDTH,
+        width: open ? SIDEBAR_WIDTH : 0,
         flexShrink: 0,
+        transition: 'width 0.3s ease',
         '& .MuiDrawer-paper': {
           width: SIDEBAR_WIDTH,
           boxSizing: 'border-box',
@@ -73,6 +74,7 @@ export function Sidebar({ sections = [], selectedItemId, onItemClick }: SidebarP
           height: '100%',
           borderRight: 1,
           borderColor: 'divider',
+          transition: 'transform 0.3s ease',
         },
       }}
     >

@@ -9,6 +9,7 @@ import ReactFlow, {
   Background,
   Controls,
   MiniMap,
+  ReactFlowProvider,
   useNodesState,
   useEdgesState,
   type Node,
@@ -82,7 +83,7 @@ function convertScenarioEdges(scenario: Scenario): Edge[] {
   }));
 }
 
-export default function FlowCanvas({
+function FlowCanvasInner({
   scenario,
   stepResults,
   selectedStepId,
@@ -220,7 +221,7 @@ export default function FlowCanvas({
         {showMinimap && (
           <MiniMap
             nodeColor={(node) => {
-              const nodeData = node.data as any;
+              const nodeData = node.data as { status?: string };
               const status = nodeData?.status;
 
               if (status === 'running') return '#2196F3';
@@ -239,5 +240,13 @@ export default function FlowCanvas({
         )}
       </ReactFlow>
     </Box>
+  );
+}
+
+export default function FlowCanvas(props: FlowCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <FlowCanvasInner {...props} />
+    </ReactFlowProvider>
   );
 }
