@@ -53,7 +53,7 @@ import {
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { addServer, setSelectedServer } from '@/store/serversSlice';
-import { updateStep, addEdge, deleteEdge, deleteStep, addStep, autoLayoutSteps, setParameterSchema, updateScenario } from '@/store/scenariosSlice';
+import { updateStep, addEdge, deleteEdge, addStep, autoLayoutSteps, setParameterSchema, updateScenario } from '@/store/scenariosSlice';
 import type { Server, Step, ParameterSchema } from '@/types';
 
 export function ConfigPage() {
@@ -168,6 +168,7 @@ export function ConfigPage() {
       if (!currentScenario) return;
 
       changes.forEach(change => {
+        // Only handle position changes - node deletion is done via UI buttons
         if (change.type === 'position' && change.position && !change.dragging) {
           dispatch(
             updateStep({
@@ -176,14 +177,9 @@ export function ConfigPage() {
               changes: { position: change.position },
             })
           );
-        } else if (change.type === 'remove') {
-          dispatch(
-            deleteStep({
-              scenarioId: currentScenario.id,
-              stepId: change.id,
-            })
-          );
         }
+        // Note: Node deletion via keyboard is disabled (deletable: false on nodes)
+        // Use the delete button in the step editor instead
       });
     },
     [dispatch, currentScenario]
