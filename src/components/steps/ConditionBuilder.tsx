@@ -16,6 +16,8 @@ import {
   ToggleButtonGroup,
   Paper,
   Divider,
+  Chip,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -274,6 +276,12 @@ function ConditionEditor({ value, onChange, onDelete, depth, requestSteps }: Con
     }
   };
 
+  const insertTemplate = (template: string) => {
+    const currentField = value.field || '';
+    const newField = currentField ? `${currentField}.${template}` : template;
+    handleChange('field', newField);
+  };
+
   return (
     <Paper
       sx={{
@@ -329,14 +337,51 @@ function ConditionEditor({ value, onChange, onDelete, depth, requestSteps }: Con
         </Box>
 
         {/* Field path */}
-        <TextField
-          label="Field Path"
-          value={value.field}
-          onChange={(e) => handleChange('field', e.target.value)}
-          size="small"
-          placeholder="e.g., data.status"
-          fullWidth
-        />
+        <Box>
+          <TextField
+            label="Field Path"
+            value={value.field}
+            onChange={(e) => handleChange('field', e.target.value)}
+            size="small"
+            placeholder="data.status, items[0].name, ${loop.item}.id"
+            helperText={
+              <Box component="span" sx={{ fontSize: '0.75rem' }}>
+                JSON path to field. Array: <code style={{ backgroundColor: 'rgba(0,0,0,0.1)', padding: '0 4px', borderRadius: '2px' }}>items[0]</code>,
+                Loop item: <code style={{ backgroundColor: 'rgba(0,0,0,0.1)', padding: '0 4px', borderRadius: '2px' }}>{'${loop.item}'}</code>,
+                Loop index: <code style={{ backgroundColor: 'rgba(0,0,0,0.1)', padding: '0 4px', borderRadius: '2px' }}>{'${loop.index}'}</code>
+              </Box>
+            }
+            fullWidth
+          />
+
+          {/* Quick insert templates */}
+          <Box sx={{ display: 'flex', gap: 0.5, mt: 1, flexWrap: 'wrap' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', alignSelf: 'center', mr: 0.5 }}>
+              Quick insert:
+            </Typography>
+            <Chip
+              label="${loop.item}"
+              size="small"
+              onClick={() => insertTemplate('${loop.item}')}
+              sx={{ cursor: 'pointer', height: 20, fontSize: '0.7rem' }}
+            />
+            <Chip
+              label="${loop.index}"
+              size="small"
+              onClick={() => insertTemplate('${loop.index}')}
+              sx={{ cursor: 'pointer', height: 20, fontSize: '0.7rem' }}
+            />
+            <Chip
+              label="[0]"
+              size="small"
+              onClick={() => {
+                const currentField = value.field || '';
+                handleChange('field', `${currentField}[0]`);
+              }}
+              sx={{ cursor: 'pointer', height: 20, fontSize: '0.7rem' }}
+            />
+          </Box>
+        </Box>
 
         {/* Operator and Value in one row */}
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

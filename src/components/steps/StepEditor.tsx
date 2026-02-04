@@ -3,6 +3,7 @@
  * Main editor that routes to appropriate step type editor
  */
 
+import { useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -13,13 +14,18 @@ import {
   Typography,
   Divider,
   Paper,
+  Alert,
+  Button,
 } from '@mui/material';
+import { ArrowForward as ArrowIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { Step, ExecutionMode } from '@/types';
 import { useCurrentScenario, useSelectedStep, useAppDispatch } from '@/store/hooks';
-import { updateStep } from '@/store/scenariosSlice';
+import { updateStep, addEdge, deleteEdge, deleteStep } from '@/store/scenariosSlice';
+import { setSelectedStep } from '@/store/uiSlice';
 import { RequestStepEditor } from './RequestStepEditor';
 import { ConditionStepEditor } from './ConditionStepEditor';
 import { LoopStepEditor } from './LoopStepEditor';
+import { GroupStepEditor } from './GroupStepEditor';
 import { ConditionBuilder } from './ConditionBuilder';
 
 export function StepEditor() {
@@ -57,9 +63,91 @@ export function StepEditor() {
     );
   };
 
+  // Find the current next step from edges (default edge, not branch edges)
+  const currentNextStep = useMemo(() => {
+    const defaultEdge = scenario.edges.find(
+      (e) => e.sourceStepId === step.id && !e.sourceHandle?.startsWith('branch_')
+    );
+    return defaultEdge?.targetStepId || '';
+  }, [scenario.edges, step.id]);
+
+  // Get other steps (excluding current step) for next step selection
+  const otherSteps = useMemo(() => {
+    return scenario.steps.filter((s) => s.id !== step.id);
+  }, [scenario.steps, step.id]);
+
+  // Handle next step change - creates or updates edge
+  const handleNextStepChange = (nextStepId: string) => {
+    // Find existing default edge from this step
+    const existingEdge = scenario.edges.find(
+      (e) => e.sourceStepId === step.id && !e.sourceHandle?.startsWith('branch_')
+    );
+
+    if (nextStepId === '') {
+      // Remove edge if clearing the selection
+      if (existingEdge) {
+        dispatch(
+          deleteEdge({
+            scenarioId: scenario.id,
+            edgeId: existingEdge.id,
+          })
+        );
+      }
+    } else if (existingEdge) {
+      // Update existing edge target - delete and recreate
+      dispatch(
+        deleteEdge({
+          scenarioId: scenario.id,
+          edgeId: existingEdge.id,
+        })
+      );
+      dispatch(
+        addEdge({
+          scenarioId: scenario.id,
+          edge: {
+            id: `edge_${Date.now()}`,
+            sourceStepId: step.id,
+            targetStepId: nextStepId,
+          },
+        })
+      );
+    } else {
+      // Create new edge
+      dispatch(
+        addEdge({
+          scenarioId: scenario.id,
+          edge: {
+            id: `edge_${Date.now()}`,
+            sourceStepId: step.id,
+            targetStepId: nextStepId,
+          },
+        })
+      );
+    }
+  };
+
+  // Handle delete step
+  const handleDeleteStep = () => {
+    if (confirm('Are you sure you want to delete this step?')) {
+      dispatch(deleteStep({ scenarioId: scenario.id, stepId: step.id }));
+      dispatch(setSelectedStep(null));
+    }
+  };
+
   return (
     <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Typography variant="h6">Edit Step: {step.name}</Typography>
+      {/* Header with delete button */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6">Edit Step: {step.name}</Typography>
+        <Button
+          color="error"
+          startIcon={<DeleteIcon />}
+          onClick={handleDeleteStep}
+          aria-label="Delete step"
+        >
+          Delete
+        </Button>
+      </Box>
 
       <Divider />
 
@@ -113,6 +201,44 @@ export function StepEditor() {
         </Box>
       </Paper>
 
+      {/* Next Step - Flow Control */}
+      <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+        <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ArrowIcon fontSize="small" />
+          Next Step (Flow Control)
+        </Typography>
+        <FormControl fullWidth>
+          <InputLabel>Next Step</InputLabel>
+          <Select
+            value={currentNextStep}
+            label="Next Step"
+            onChange={(e) => handleNextStepChange(e.target.value)}
+          >
+            <MenuItem value="">
+              <em>(End of flow)</em>
+            </MenuItem>
+            {otherSteps.map((s) => (
+              <MenuItem key={s.id} value={s.id}>
+                {s.name} ({s.type})
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Alert severity="info" sx={{ mt: 1 }}>
+          <Typography variant="caption">
+            Select the step to execute after this one completes.
+            <br />
+            You can also drag edges in the graph view.
+            {step.type === 'condition' && (
+              <>
+                <br />
+                <strong>Note:</strong> Condition steps use branches to determine flow. Configure branches below.
+              </>
+            )}
+          </Typography>
+        </Alert>
+      </Paper>
+
       {/* Pre-condition */}
       <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
         <Typography variant="subtitle2" sx={{ mb: 2 }}>
@@ -148,23 +274,11 @@ export function StepEditor() {
         )}
 
         {step.type === 'group' && (
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Group steps are organizational containers. Use the flow editor to add steps to this group.
-            </Typography>
-            <FormControl fullWidth>
-              <InputLabel>Child Steps</InputLabel>
-              <Select
-                multiple
-                value={step.stepIds}
-                label="Child Steps"
-                disabled
-                renderValue={(selected) => `${selected.length} step(s)`}
-              >
-                <MenuItem value="">Configure in flow editor</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
+          <GroupStepEditor
+            step={step}
+            allSteps={scenario.steps}
+            onChange={handleTypeSpecificChange}
+          />
         )}
       </Paper>
 
