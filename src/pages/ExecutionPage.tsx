@@ -23,7 +23,7 @@ export function ExecutionPage() {
   // Show empty state if no scenario
   if (!currentScenario) {
     return (
-      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ flexGrow: 1, height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <EmptyState
           icon={PlayArrowIcon}
           title="No Scenario Selected"
@@ -34,7 +34,7 @@ export function ExecutionPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
       {/* Top Section: Scenario Info and Controls */}
       <Paper
         elevation={0}
