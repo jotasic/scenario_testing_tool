@@ -69,7 +69,9 @@ const scenariosSlice = createSlice({
     addStep: (state, action: PayloadAction<{ scenarioId: string; step: Step }>) => {
       const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
       if (scenario) {
-        scenario.steps.push(action.payload.step);
+        // Deep clone step to prevent shared references
+        const clonedStep = structuredClone(action.payload.step);
+        scenario.steps.push(clonedStep);
         scenario.updatedAt = new Date().toISOString();
       }
     },
@@ -82,9 +84,11 @@ const scenariosSlice = createSlice({
       if (scenario) {
         const stepIndex = scenario.steps.findIndex(s => s.id === action.payload.stepId);
         if (stepIndex !== -1) {
+          // Deep clone changes to prevent shared references between steps
+          const clonedChanges = structuredClone(action.payload.changes);
           scenario.steps[stepIndex] = {
             ...scenario.steps[stepIndex],
-            ...action.payload.changes,
+            ...clonedChanges,
           } as Step;
           scenario.updatedAt = new Date().toISOString();
         }
