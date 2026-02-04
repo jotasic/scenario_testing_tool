@@ -269,17 +269,30 @@ export class ScenarioExecutor {
   private async executeStep(step: Step): Promise<string | null> {
     if (this.stopped) return null;
 
+    // Notify step start - this sets currentStepId in Redux
+    this.callbacks.onStepStart?.(step.id, 'pending');
+
     // Check step pre-condition
     const context = this.createContext();
     if (!evaluateOptionalCondition(step.condition, context)) {
       this.addLog('info', `Step "${step.name}" skipped (condition not met)`, {
         stepId: step.id,
       });
+      this.setStepResult(step.id, {
+        stepId: step.id,
+        status: 'skipped',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      });
       return this.getNextStepId(step);
     }
 
     // Get effective execution mode
     const mode = this.stepModeOverrides[step.id] ?? step.executionMode;
+
+    this.addLog('debug', `Step "${step.name}" executionMode: ${mode}, override: ${this.stepModeOverrides[step.id]}, stepDefault: ${step.executionMode}`, {
+      stepId: step.id,
+    });
 
     // Handle bypass mode
     if (mode === 'bypass') {
@@ -302,16 +315,20 @@ export class ScenarioExecutor {
 
     // Handle manual mode
     if (mode === 'manual') {
-      this.addLog('info', `Step "${step.name}" waiting for manual trigger`, {
+      this.addLog('info', `Step "${step.name}" waiting for manual trigger (status: ${this.status}, paused: ${this.paused})`, {
         stepId: step.id,
       });
+      // Set waiting status BEFORE pausing so UI can detect it
       this.setStepResult(step.id, {
         stepId: step.id,
         status: 'waiting',
         startedAt: new Date().toISOString(),
       });
+      this.addLog('debug', `Calling pause(), current status: ${this.status}`, { stepId: step.id });
       this.pause();
+      this.addLog('debug', `After pause(), paused: ${this.paused}, status: ${this.status}`, { stepId: step.id });
       await this.waitForResume();
+      this.addLog('debug', `After waitForResume(), continuing execution`, { stepId: step.id });
 
       if (this.stopped) return null;
     }
@@ -512,12 +529,74 @@ export class ScenarioExecutor {
           });
         }
 
-        // Execute loop body (all steps in stepIds)
-        for (const childStepId of step.stepIds) {
-          const childStep = this.findStep(childStepId);
-          if (childStep) {
-            await this.executeStep(childStep);
+        // Execute loop body - follow step flow within the loop
+        // This allows Condition steps to branch within the loop
+        // Note: Nested loops/groups have their own stepIds, so we track direct children only
+        let currentChildId: string | null = step.stepIds[0] || null;
+        const loopStepIds = new Set(step.stepIds);
+
+        this.addLog('debug', `Loop body stepIds: [${step.stepIds.join(', ')}]`, {
+          stepId: step.id,
+        });
+
+        while (currentChildId && !this.stopped) {
+          const childStep = this.findStep(currentChildId);
+          if (!childStep) {
+            this.addLog('warn', `Child step "${currentChildId}" not found in loop`, {
+              stepId: step.id,
+            });
+            break;
           }
+
+          // Check if this step is part of the loop's direct children
+          const isLoopChild = loopStepIds.has(currentChildId);
+
+          this.addLog('debug', `Executing child step "${childStep.name}" (${childStep.type}), isLoopChild: ${isLoopChild}`, {
+            stepId: step.id,
+            childStepId: currentChildId,
+          });
+
+          const nextStepId = await this.executeStep(childStep);
+
+          this.addLog('debug', `Child step returned nextStepId: ${nextStepId}`, {
+            stepId: step.id,
+            childStepId: currentChildId,
+          });
+
+          // If no next step, end this iteration
+          if (!nextStepId) {
+            break;
+          }
+
+          // If next step is in loop's stepIds, continue to that step
+          if (loopStepIds.has(nextStepId)) {
+            currentChildId = nextStepId;
+            continue;
+          }
+
+          // If next step is reached via branch but not in loop's stepIds,
+          // execute it and then end this iteration
+          const nextStep = this.findStep(nextStepId);
+          if (nextStep) {
+            this.addLog('debug', `Executing branched step "${nextStep.name}" (${nextStep.type})`, {
+              stepId: step.id,
+              branchedStepId: nextStepId,
+            });
+            // Execute the branched step - it may pause for manual mode
+            const afterBranchStepId = await this.executeStep(nextStep);
+
+            // If branched step returns another step, continue following the chain
+            // but only within this iteration
+            if (afterBranchStepId && !loopStepIds.has(afterBranchStepId)) {
+              // Could be another branched step, but for now we end iteration
+              this.addLog('debug', `Branched step chain ended, next would be: ${afterBranchStepId}`, {
+                stepId: step.id,
+              });
+            }
+          }
+
+          // End this iteration
+          break;
         }
 
         // Pop loop context from stack
@@ -575,11 +654,41 @@ export class ScenarioExecutor {
       startedAt: startTime,
     });
 
-    for (const childStepId of step.stepIds) {
-      const childStep = this.findStep(childStepId);
-      if (childStep) {
-        await this.executeStep(childStep);
+    // Execute group body - follow step flow within the group
+    // This allows Condition steps to branch within the group
+    let currentChildId: string | null = step.stepIds[0] || null;
+    const groupStepIds = new Set(step.stepIds);
+
+    while (currentChildId && !this.stopped) {
+      const childStep = this.findStep(currentChildId);
+      if (!childStep) break;
+
+      const nextStepId = await this.executeStep(childStep);
+
+      // If no next step, exit the group
+      if (!nextStepId) {
+        break;
       }
+
+      // If the next step is inside the group, continue to that step
+      if (groupStepIds.has(nextStepId)) {
+        currentChildId = nextStepId;
+        continue;
+      }
+
+      // If next step is reached via branch but not in group's stepIds,
+      // execute it and then exit the group
+      const nextStep = this.findStep(nextStepId);
+      if (nextStep) {
+        this.addLog('debug', `Executing branched step "${nextStep.name}" (${nextStep.type}) from group`, {
+          stepId: step.id,
+          branchedStepId: nextStepId,
+        });
+        await this.executeStep(nextStep);
+      }
+
+      // Exit the group
+      break;
     }
 
     this.setStepResult(step.id, {
