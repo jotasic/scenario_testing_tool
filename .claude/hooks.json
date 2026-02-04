@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json.schemastore.org/claude-hooks.json",
+  "_comment": "Claude Code 훅 설정. 이벤트 발생 시 자동 실행됩니다.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "_comment": "위험한 Bash 명령어 차단",
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '(rm -rf /|rm -rf ~|sudo rm|> /dev/|chmod 777|curl.*\\|.*bash|wget.*\\|.*sh)' && echo 'BLOCK: Dangerous command detected' && exit 1 || exit 0"
+          }
+        ]
+      },
+      {
+        "_comment": "민감한 파일 수정 경고",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '(\\.env|credentials|secret|password|apikey)' && echo 'WARNING: Modifying sensitive file' || exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "_comment": "TypeScript 파일 수정 후 타입 체크",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q '\\.tsx\\?$'; then npx tsc --noEmit 2>/dev/null || echo 'Type check warning'; fi; exit 0"
+          }
+        ]
+      },
+      {
+        "_comment": "Python 파일 수정 후 린트",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q '\\.py$'; then ruff check --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null || echo 'Lint warning'; fi; exit 0"
+          }
+        ]
+      },
+      {
+        "_comment": "Git 커밋 후 상태 확인",
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'git commit'; then git log --oneline -1 2>/dev/null; fi; exit 0"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "_comment": "작업 완료 알림 (macOS)",
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# osascript -e 'display notification \"Task completed\" with title \"Claude Code\"'"
+          }
+        ]
+      },
+      {
+        "_comment": "작업 완료 알림 (Linux)",
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# notify-send 'Claude Code' 'Task completed'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "_comment": "세션 종료 시 임시 파일 정리",
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# rm -f /tmp/claude-*.tmp 2>/dev/null; exit 0"
+          }
+        ]
+      },
+      {
+        "_comment": "세션 종료 시 작업 요약 저장",
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "# echo \"Session ended: $(date)\" >> ~/.claude/session-log.txt"
+          }
+        ]
+      }
+    ]
+  }
+}

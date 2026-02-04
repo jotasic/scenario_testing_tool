@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json.schemastore.org/claude-mcp.json",
+  "_comment": "MCP 서버 설정 예제. 실제 사용 시 경로와 환경변수를 조정하세요.",
+  "mcpServers": {
+    "filesystem": {
+      "_comment": "파일시스템 접근 MCP 서버",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-server-filesystem",
+        "/path/to/allowed/directory"
+      ]
+    },
+    "github": {
+      "_comment": "GitHub API MCP 서버 - 이슈, PR, 코드 검색",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "git": {
+      "_comment": "Git 히스토리 및 브랜치 관리",
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "."]
+    },
+    "postgres": {
+      "_comment": "PostgreSQL 쿼리 및 스키마 탐색",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-postgres"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    },
+    "sqlite": {
+      "_comment": "SQLite 로컬 데이터베이스",
+      "command": "uvx",
+      "args": ["mcp-server-sqlite", "--db-path", "./dev.db"]
+    },
+    "memory": {
+      "_comment": "지식 그래프 메모리 - 세션 간 정보 유지",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-memory"]
+    },
+    "puppeteer": {
+      "_comment": "브라우저 자동화 - 스크래핑, UI 테스트",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-puppeteer"]
+    },
+    "playwright": {
+      "_comment": "E2E 테스트 자동화 - 브라우저 제어, 스크린샷, 상호작용",
+      "command": "npx",
+      "args": ["-y", "@executeautomation/playwright-mcp-server"]
+    },
+    "docker": {
+      "_comment": "Docker 컨테이너 및 이미지 관리",
+      "command": "uvx",
+      "args": ["mcp-server-docker"]
+    },
+    "slack": {
+      "_comment": "Slack 메시지 및 채널 관리",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-slack"],
+      "env": {
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+        "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
+      }
+    },
+    "notion": {
+      "_comment": "Notion 페이지 및 데이터베이스",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-notion"],
+      "env": {
+        "NOTION_API_KEY": "${NOTION_API_KEY}"
+      }
+    },
+    "linear": {
+      "_comment": "Linear 이슈 트래커",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-linear"],
+      "env": {
+        "LINEAR_API_KEY": "${LINEAR_API_KEY}"
+      }
+    },
+    "sentry": {
+      "_comment": "Sentry 에러 모니터링",
+      "command": "uvx",
+      "args": ["mcp-server-sentry"],
+      "env": {
+        "SENTRY_AUTH_TOKEN": "${SENTRY_AUTH_TOKEN}",
+        "SENTRY_ORG": "${SENTRY_ORG}"
+      }
+    },
+    "fetch": {
+      "_comment": "HTTP 요청 및 웹 콘텐츠 가져오기",
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    "brave-search": {
+      "_comment": "Brave 웹 검색",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    },
+    "sequential-thinking": {
+      "_comment": "복잡한 문제 단계별 추론",
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-sequential-thinking"]
+    },
+    "time": {
+      "_comment": "현재 시간 및 타임존 정보",
+      "command": "uvx",
+      "args": ["mcp-server-time"]
+    }
+  }
+}
