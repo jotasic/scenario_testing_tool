@@ -2,7 +2,7 @@
  * Branch types for conditional flow control
  */
 
-import { ConditionExpression } from './condition';
+import type { ConditionExpression } from './condition';
 
 /**
  * Branch definition for conditional navigation between steps

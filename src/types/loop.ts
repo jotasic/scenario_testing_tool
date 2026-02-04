@@ -2,7 +2,7 @@
  * Loop types for iterative step execution
  */
 
-import { ConditionExpression } from './condition';
+import type { ConditionExpression } from './condition';
 
 /**
  * Types of loops supported

@@ -3,8 +3,8 @@
  * Tracks the state and results of scenario execution
  */
 
-import { HttpMethod } from './step';
-import { ExecutionMode } from './step';
+import type { HttpMethod } from './step';
+import type { ExecutionMode } from './step';
 
 /**
  * Overall execution status

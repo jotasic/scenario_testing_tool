@@ -3,8 +3,8 @@
  * A scenario is a complete test flow with steps and parameters
  */
 
-import { Step } from './step';
-import { ParameterSchema } from './parameter';
+import type { Step } from './step';
+import type { ParameterSchema } from './parameter';
 
 /**
  * Edge connecting two steps in the scenario flow

@@ -3,9 +3,9 @@
  * Steps are the building blocks of scenarios
  */
 
-import { ConditionExpression } from './condition';
-import { Loop } from './loop';
-import { Branch } from './branch';
+import type { ConditionExpression } from './condition';
+import type { Loop } from './loop';
+import type { Branch } from './branch';
 
 /**
  * HTTP methods supported for request steps
