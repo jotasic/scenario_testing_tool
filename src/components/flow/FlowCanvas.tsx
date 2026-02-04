@@ -43,7 +43,8 @@ interface FlowCanvasProps {
  */
 function convertStepsToNodes(
   steps: Step[],
-  stepResults?: Record<string, StepExecutionResult>
+  stepResults?: Record<string, StepExecutionResult>,
+  startStepId?: string
 ): Node[] {
   return steps.map(step => {
     const result = stepResults?.[step.id];
@@ -57,6 +58,7 @@ function convertStepsToNodes(
         status: result?.status,
         currentIteration: result?.currentIteration,
         totalIterations: result?.iterations,
+        isStartStep: step.id === startStepId,
       },
     };
   });
@@ -65,7 +67,7 @@ function convertStepsToNodes(
 /**
  * Convert scenario edges to ReactFlow edges
  */
-function convertScenarioEdges(scenario: Scenario): Edge[] {
+function convertScenarioEdges(scenario: Scenario, readonly: boolean = false): Edge[] {
   return scenario.edges.map(edge => ({
     id: edge.id,
     source: edge.sourceStepId,
@@ -73,6 +75,9 @@ function convertScenarioEdges(scenario: Scenario): Edge[] {
     sourceHandle: edge.sourceHandle,
     label: edge.label,
     animated: edge.animated ?? false,
+    selectable: !readonly,
+    deletable: !readonly,
+    focusable: !readonly,
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 20,
@@ -100,13 +105,13 @@ function FlowCanvasInner({
 
   // Convert scenario data to React Flow format
   const initialNodes = useMemo(
-    () => convertStepsToNodes(scenario.steps, stepResults),
-    [scenario.steps, stepResults]
+    () => convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId),
+    [scenario.steps, stepResults, scenario.startStepId]
   );
 
   const initialEdges = useMemo(
-    () => convertScenarioEdges(scenario),
-    [scenario]
+    () => convertScenarioEdges(scenario, readonly),
+    [scenario, readonly]
   );
 
   // Local state for nodes and edges
@@ -116,13 +121,13 @@ function FlowCanvasInner({
   // Update nodes when steps or results change
   // Using useEffect instead of useMemo for side effects
   useEffect(() => {
-    setNodes(convertStepsToNodes(scenario.steps, stepResults));
-  }, [scenario.steps, stepResults, setNodes]);
+    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId));
+  }, [scenario.steps, stepResults, scenario.startStepId, setNodes]);
 
   // Update edges when scenario edges change
   useEffect(() => {
-    setEdges(convertScenarioEdges(scenario));
-  }, [scenario.edges, setEdges]);
+    setEdges(convertScenarioEdges(scenario, readonly));
+  }, [scenario.edges, setEdges, readonly]);
 
   // Handle node changes (position, selection, etc.)
   const handleNodesChange = useCallback(
@@ -201,6 +206,14 @@ function FlowCanvasInner({
         '& .react-flow__edge': {
           cursor: readonly ? 'default' : 'pointer',
         },
+        '& .react-flow__edge.selected .react-flow__edge-path': {
+          stroke: '#1976d2',
+          strokeWidth: 3,
+        },
+        '& .react-flow__edge:hover .react-flow__edge-path': {
+          stroke: '#42a5f5',
+          strokeWidth: 2.5,
+        },
       }}
     >
       <ReactFlow
@@ -228,12 +241,14 @@ function FlowCanvasInner({
             height: 20,
           },
         }}
-        deleteKeyCode={readonly ? null : 'Delete'}
+        deleteKeyCode={readonly ? null : ['Delete', 'Backspace']}
         multiSelectionKeyCode={readonly ? null : 'Control'}
         panOnDrag={true}
         nodesDraggable={!readonly}
         nodesConnectable={!readonly}
-        elementsSelectable={true}
+        elementsSelectable={!readonly}
+        edgesFocusable={!readonly}
+        selectNodesOnDrag={false}
       >
         <Background
           color="#aaa"

@@ -16,6 +16,7 @@ interface LoopNodeData {
   currentIteration?: number;
   totalIterations?: number;
   selected?: boolean;
+  isStartStep?: boolean;
 }
 
 const getStatusColor = (status?: StepExecutionStatus): string => {
@@ -56,7 +57,7 @@ const getLoopInfo = (step: LoopStep): string => {
 };
 
 function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
-  const { step, status, currentIteration, totalIterations } = data;
+  const { step, status, currentIteration, totalIterations, isStartStep } = data;
   const statusColor = getStatusColor(status);
 
   return (
@@ -65,10 +66,10 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
         minWidth: 220,
         maxWidth: 300,
         backgroundColor: 'background.paper',
-        border: selected ? '2px solid' : '1px solid',
-        borderColor: selected ? 'primary.main' : 'divider',
+        border: selected ? '2px solid' : isStartStep ? '2px solid' : '1px solid',
+        borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : 'divider',
         borderRadius: 2,
-        boxShadow: selected ? 3 : 1,
+        boxShadow: selected ? 3 : isStartStep ? 2 : 1,
         transition: 'all 0.2s',
         position: 'relative',
         '&:hover': {
@@ -111,7 +112,7 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
       {/* Node Content */}
       <Box sx={{ p: 2 }}>
         {/* Icon and Type */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
           <LoopIcon sx={{ fontSize: 20, color: 'info.main' }} />
           <Chip
             label={getLoopTypeLabel(step.loop.type)}
@@ -124,6 +125,14 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
               height: 22,
             }}
           />
+          {isStartStep && (
+            <Chip
+              label="START"
+              size="small"
+              color="success"
+              sx={{ fontSize: '0.65rem', height: 20 }}
+            />
+          )}
           {step.executionMode !== 'auto' && (
             <Chip
               label={step.executionMode}

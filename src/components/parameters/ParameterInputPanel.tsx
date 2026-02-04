@@ -272,8 +272,14 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
               color: 'text.secondary',
             }}
           >
-            <Typography variant="body1">
+            <Typography variant="body1" gutterBottom>
               No parameters defined for this scenario
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Go to <strong>Configuration</strong> mode and click <strong>Parameters</strong> in the sidebar to define parameters.
+            </Typography>
+            <Typography variant="caption" display="block" sx={{ mt: 2 }}>
+              Parameters let you pass dynamic values like user IDs, API keys, or test data to your scenario steps.
             </Typography>
           </Box>
         )}

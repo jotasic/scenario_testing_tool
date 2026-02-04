@@ -24,12 +24,16 @@ import {
   Tooltip,
   Paper,
   Divider,
+  Alert,
+  Collapse,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   ExpandMore as ExpandMoreIcon,
   Info as InfoIcon,
+  ContentCopy as CopyIcon,
+  Help as HelpIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import type { ParameterSchema, ParameterType, Step } from '@/types';
@@ -123,14 +127,33 @@ function SchemaItem({ schema, steps, onUpdate, onDelete, expanded, onExpandChang
       </AccordionSummary>
       <AccordionDetails>
         <Stack spacing={2}>
-          <TextField
-            label="Parameter Name"
-            size="small"
-            fullWidth
-            value={schema.name}
-            onChange={(e) => handleFieldChange('name', e.target.value)}
-            helperText={`Reference: \${params.${schema.name}}`}
-          />
+          <Box>
+            <TextField
+              label="Parameter Name"
+              size="small"
+              fullWidth
+              value={schema.name}
+              onChange={(e) => handleFieldChange('name', e.target.value)}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                Reference:
+              </Typography>
+              <Chip
+                label={`\${params.${schema.name}}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                onClick={() => copyToClipboard(`\${params.${schema.name}}`)}
+                onDelete={() => copyToClipboard(`\${params.${schema.name}}`)}
+                deleteIcon={
+                  <Tooltip title="Copy to clipboard">
+                    <CopyIcon sx={{ fontSize: '0.9rem !important' }} />
+                  </Tooltip>
+                }
+              />
+            </Box>
+          </Box>
 
           <FormControl fullWidth size="small">
             <InputLabel>Type</InputLabel>
@@ -243,6 +266,84 @@ function SchemaItem({ schema, steps, onUpdate, onDelete, expanded, onExpandChang
             </Paper>
           )}
 
+          {/* Array Item Schema */}
+          {schema.type === 'array' && (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Array Item Type
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                Define the type of items in this array
+              </Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel>Item Type</InputLabel>
+                <Select
+                  value={schema.itemSchema?.type || 'string'}
+                  label="Item Type"
+                  onChange={(e) =>
+                    handleFieldChange('itemSchema', {
+                      id: schema.itemSchema?.id || `item_${Date.now()}`,
+                      name: 'item',
+                      type: e.target.value,
+                      required: false,
+                    })
+                  }
+                >
+                  <MenuItem value="string">String</MenuItem>
+                  <MenuItem value="number">Number</MenuItem>
+                  <MenuItem value="boolean">Boolean</MenuItem>
+                  <MenuItem value="any">Any (JSON)</MenuItem>
+                </Select>
+              </FormControl>
+              <Alert severity="info" sx={{ mt: 1 }}>
+                <Typography variant="caption">
+                  In Execution mode, you can add/remove items dynamically.
+                  <br />
+                  For complex nested arrays, use <strong>Any (JSON)</strong> type.
+                </Typography>
+              </Alert>
+            </Paper>
+          )}
+
+          {/* Object Properties Info */}
+          {schema.type === 'object' && (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Object Structure
+              </Typography>
+              <Alert severity="info" sx={{ mb: 1 }}>
+                <Typography variant="caption">
+                  For object parameters, define the structure using JSON in the Default Value field.
+                  <br />
+                  Example: <code>{`{"name": "", "age": 0}`}</code>
+                  <br /><br />
+                  Or use the JSON editor in Execution mode to input values.
+                </Typography>
+              </Alert>
+              <TextField
+                label="Default Object Structure (JSON)"
+                size="small"
+                fullWidth
+                multiline
+                rows={4}
+                value={
+                  schema.defaultValue
+                    ? JSON.stringify(schema.defaultValue, null, 2)
+                    : '{\n  \n}'
+                }
+                onChange={(e) => {
+                  try {
+                    handleFieldChange('defaultValue', JSON.parse(e.target.value));
+                  } catch {
+                    // Keep invalid JSON as-is for editing
+                  }
+                }}
+                placeholder={`{\n  "key": "value",\n  "count": 0\n}`}
+                sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+              />
+            </Paper>
+          )}
+
           {/* Usage Info */}
           {usedInSteps.length > 0 && (
             <Paper variant="outlined" sx={{ p: 2, bgcolor: 'success.50' }}>
@@ -275,6 +376,88 @@ function SchemaItem({ schema, steps, onUpdate, onDelete, expanded, onExpandChang
         </Stack>
       </AccordionDetails>
     </Accordion>
+  );
+}
+
+/** Copy text to clipboard helper */
+const copyToClipboard = (text: string) => {
+  navigator.clipboard.writeText(text);
+};
+
+/** Parameter usage guide component */
+function ParameterUsageGuide() {
+  const [expanded, setExpanded] = useState(false);
+
+  const examples = [
+    { syntax: '${params.userId}', description: 'Use in endpoint: /api/users/${params.userId}' },
+    { syntax: '${params.apiKey}', description: 'Use in header: Authorization: Bearer ${params.apiKey}' },
+    { syntax: '${params.data}', description: 'Use in body: { "payload": ${params.data} }' },
+    { syntax: '${responses.step1.id}', description: 'Reference previous step response' },
+  ];
+
+  return (
+    <Alert
+      severity="info"
+      icon={<HelpIcon />}
+      action={
+        <Button
+          color="inherit"
+          size="small"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Hide' : 'Show'} Guide
+        </Button>
+      }
+      sx={{ mb: 1 }}
+    >
+      <Typography variant="body2" fontWeight={500}>
+        How to Use Parameters
+      </Typography>
+      <Collapse in={expanded}>
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="caption" component="div" sx={{ mb: 1 }}>
+            1. <strong>Define</strong> parameters here (name, type, default value)
+          </Typography>
+          <Typography variant="caption" component="div" sx={{ mb: 1 }}>
+            2. <strong>Reference</strong> in steps using syntax below
+          </Typography>
+          <Typography variant="caption" component="div" sx={{ mb: 1 }}>
+            3. <strong>Set values</strong> in Execution mode before running
+          </Typography>
+
+          <Divider sx={{ my: 1 }} />
+
+          <Typography variant="caption" fontWeight={600} sx={{ display: 'block', mb: 0.5 }}>
+            Syntax Examples:
+          </Typography>
+          {examples.map((ex, idx) => (
+            <Box
+              key={idx}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                mb: 0.5,
+                fontSize: '0.75rem',
+              }}
+            >
+              <Chip
+                label={ex.syntax}
+                size="small"
+                variant="outlined"
+                sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                onClick={() => copyToClipboard(ex.syntax)}
+                onDelete={() => copyToClipboard(ex.syntax)}
+                deleteIcon={<CopyIcon sx={{ fontSize: '0.9rem !important' }} />}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {ex.description}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </Collapse>
+    </Alert>
   );
 }
 
@@ -337,13 +520,16 @@ export function ParameterSchemaEditor({ schemas, steps, onChange }: ParameterSch
 
       {/* Content */}
       <Box sx={{ flexGrow: 1, overflow: 'auto', p: 1 }}>
+        {/* Usage Guide */}
+        <ParameterUsageGuide />
+
         {schemas.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
             <Typography variant="body2">
               No parameters defined.
             </Typography>
             <Typography variant="caption">
-              Add parameters to use as {"${params.name}"} in your steps.
+              Click &quot;Add Parameter&quot; to create your first parameter.
             </Typography>
           </Box>
         ) : (

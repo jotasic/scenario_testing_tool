@@ -112,7 +112,12 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
         value={step.endpoint}
         onChange={(e) => onChange({ endpoint: e.target.value })}
         placeholder="/api/users/${params.userId}"
-        helperText="Use ${params.field} or ${responses.stepId.field} for variables"
+        helperText={
+          <Box component="span">
+            Variables: <code style={{ backgroundColor: '#f5f5f5', padding: '0 4px', borderRadius: 2 }}>${'{params.name}'}</code> (parameter) or{' '}
+            <code style={{ backgroundColor: '#f5f5f5', padding: '0 4px', borderRadius: 2 }}>${'{responses.stepId.field}'}</code> (response)
+          </Box>
+        }
         fullWidth
       />
 
@@ -181,8 +186,16 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
           }}
           multiline
           rows={6}
-          placeholder='{"key": "value"}'
-          helperText="JSON format. Use variables like ${params.field}"
+          placeholder={`{
+  "userId": "\${params.userId}",
+  "name": "\${params.userName}",
+  "previousId": "\${responses.step1.data.id}"
+}`}
+          helperText={
+            <Box component="span">
+              JSON format. Example: <code style={{ backgroundColor: '#f5f5f5', padding: '0 4px', borderRadius: 2 }}>{'"value": "${params.name}"'}</code>
+            </Box>
+          }
           fullWidth
         />
       )}
@@ -213,7 +226,18 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
             value={step.responseAlias || ''}
             onChange={(e) => onChange({ responseAlias: e.target.value })}
             placeholder={step.id}
-            helperText="Optional: Custom alias for referencing this response"
+            helperText={
+              <Box component="span">
+                Reference this response in other steps as:{' '}
+                <code style={{ backgroundColor: '#f5f5f5', padding: '0 4px', borderRadius: 2 }}>
+                  {`\${responses.${step.responseAlias || step.id}.field}`}
+                </code>
+                <br />
+                Example: <code style={{ backgroundColor: '#f5f5f5', padding: '0 4px', borderRadius: 2 }}>
+                  {`\${responses.${step.responseAlias || step.id}.data.id}`}
+                </code>
+              </Box>
+            }
             size="small"
           />
         )}

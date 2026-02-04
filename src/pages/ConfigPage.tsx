@@ -19,6 +19,10 @@ import {
   Collapse,
   Divider,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Storage as StorageIcon,
@@ -49,7 +53,7 @@ import {
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { addServer, setSelectedServer } from '@/store/serversSlice';
-import { updateStep, addEdge, deleteEdge, deleteStep, addStep, autoLayoutSteps, setParameterSchema } from '@/store/scenariosSlice';
+import { updateStep, addEdge, deleteEdge, deleteStep, addStep, autoLayoutSteps, setParameterSchema, updateScenario } from '@/store/scenariosSlice';
 import type { Server, Step, ParameterSchema } from '@/types';
 
 export function ConfigPage() {
@@ -139,6 +143,14 @@ export function ConfigPage() {
       if (currentScenario) {
         dispatch(autoLayoutSteps({ scenarioId: currentScenario.id, direction }));
       }
+    },
+    [dispatch, currentScenario]
+  );
+
+  const handleStartStepChange = useCallback(
+    (startStepId: string) => {
+      if (!currentScenario) return;
+      dispatch(updateScenario({ id: currentScenario.id, changes: { startStepId } }));
     },
     [dispatch, currentScenario]
   );
@@ -471,7 +483,23 @@ export function ConfigPage() {
           )}
         </Box>
         {currentScenario && (
-          <Stack direction="row" spacing={0.5} sx={{ ml: 1, flexShrink: 0 }}>
+          <Stack direction="row" spacing={1} sx={{ ml: 1, flexShrink: 0, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel id="start-step-label">Start Step</InputLabel>
+              <Select
+                labelId="start-step-label"
+                value={currentScenario.startStepId || ''}
+                label="Start Step"
+                onChange={(e) => handleStartStepChange(e.target.value)}
+              >
+                {steps.map((step) => (
+                  <MenuItem key={step.id} value={step.id}>
+                    {step.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Divider orientation="vertical" flexItem />
             <Tooltip title="Auto-arrange (Top to Bottom)">
               <IconButton size="small" onClick={() => handleAutoLayout('TB')}>
                 <VerticalIcon fontSize="small" />

@@ -14,6 +14,7 @@ interface ConditionNodeData {
   step: ConditionStep;
   status?: StepExecutionStatus;
   selected?: boolean;
+  isStartStep?: boolean;
 }
 
 const getStatusColor = (status?: StepExecutionStatus): string => {
@@ -30,7 +31,7 @@ const getStatusColor = (status?: StepExecutionStatus): string => {
 };
 
 function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {
-  const { step, status } = data;
+  const { step, status, isStartStep } = data;
   const statusColor = getStatusColor(status);
 
   return (
@@ -39,10 +40,10 @@ function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {
         minWidth: 200,
         maxWidth: 280,
         backgroundColor: 'background.paper',
-        border: selected ? '2px solid' : '1px solid',
-        borderColor: selected ? 'primary.main' : 'divider',
+        border: selected ? '2px solid' : isStartStep ? '2px solid' : '1px solid',
+        borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : 'divider',
         borderRadius: 2,
-        boxShadow: selected ? 3 : 1,
+        boxShadow: selected ? 3 : isStartStep ? 2 : 1,
         transition: 'all 0.2s',
         position: 'relative',
         '&:hover': {
@@ -85,7 +86,7 @@ function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {
       {/* Node Content */}
       <Box sx={{ p: 2 }}>
         {/* Icon and Type */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
           <CallSplitIcon sx={{ fontSize: 20, color: 'warning.main' }} />
           <Chip
             label="CONDITION"
@@ -98,6 +99,14 @@ function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {
               height: 22,
             }}
           />
+          {isStartStep && (
+            <Chip
+              label="START"
+              size="small"
+              color="success"
+              sx={{ fontSize: '0.65rem', height: 20 }}
+            />
+          )}
           {step.executionMode !== 'auto' && (
             <Chip
               label={step.executionMode}

@@ -13,6 +13,7 @@ interface RequestNodeData {
   step: RequestStep;
   status?: StepExecutionStatus;
   selected?: boolean;
+  isStartStep?: boolean;
 }
 
 const getMethodColor = (method: string): string => {
@@ -40,7 +41,7 @@ const getStatusColor = (status?: StepExecutionStatus): string => {
 };
 
 function RequestNode({ data, selected }: NodeProps<RequestNodeData>) {
-  const { step, status } = data;
+  const { step, status, isStartStep } = data;
   const methodColor = getMethodColor(step.method);
   const statusColor = getStatusColor(status);
 
@@ -50,10 +51,10 @@ function RequestNode({ data, selected }: NodeProps<RequestNodeData>) {
         minWidth: 250,
         maxWidth: 350,
         backgroundColor: 'background.paper',
-        border: selected ? '2px solid' : '1px solid',
-        borderColor: selected ? 'primary.main' : 'divider',
+        border: selected ? '2px solid' : isStartStep ? '2px solid' : '1px solid',
+        borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : 'divider',
         borderRadius: 2,
-        boxShadow: selected ? 3 : 1,
+        boxShadow: selected ? 3 : isStartStep ? 2 : 1,
         transition: 'all 0.2s',
         position: 'relative',
         '&:hover': {
@@ -96,7 +97,7 @@ function RequestNode({ data, selected }: NodeProps<RequestNodeData>) {
       {/* Node Content */}
       <Box sx={{ p: 2 }}>
         {/* Method Badge */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
           <Chip
             label={step.method}
             size="small"
@@ -108,6 +109,14 @@ function RequestNode({ data, selected }: NodeProps<RequestNodeData>) {
               height: 24,
             }}
           />
+          {isStartStep && (
+            <Chip
+              label="START"
+              size="small"
+              color="success"
+              sx={{ fontSize: '0.65rem', height: 20 }}
+            />
+          )}
           {step.executionMode !== 'auto' && (
             <Chip
               label={step.executionMode}

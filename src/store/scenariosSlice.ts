@@ -171,11 +171,19 @@ const scenariosSlice = createSlice({
         if (sourceStep) {
           const handle = edge.sourceHandle;
 
-          // Branch connections for ConditionStep (handle format: 'branch_0', 'branch_1', etc.)
+          // Branch connections for ConditionStep (handle is branch.id like 'branch_1234567890')
           if (handle?.startsWith('branch_') && sourceStep.type === 'condition') {
-            const branchIndex = parseInt(handle.split('_')[1], 10);
-            if (sourceStep.branches && sourceStep.branches[branchIndex]) {
-              sourceStep.branches[branchIndex].nextStepId = edge.targetStepId;
+            // Find branch by matching the branch.id (handle ID)
+            const branch = sourceStep.branches?.find(b => b.id === handle);
+            if (branch) {
+              branch.nextStepId = edge.targetStepId;
+            }
+          }
+          // Branch connections for RequestStep with branches
+          else if (handle?.startsWith('branch_') && sourceStep.type === 'request' && sourceStep.branches) {
+            const branch = sourceStep.branches.find(b => b.id === handle);
+            if (branch) {
+              branch.nextStepId = edge.targetStepId;
             }
           }
           // Loop body connections
@@ -224,11 +232,18 @@ const scenariosSlice = createSlice({
           if (sourceStep) {
             const handle = edge.sourceHandle;
 
-            // Clear branch nextStepId
+            // Clear branch nextStepId for ConditionStep
             if (handle?.startsWith('branch_') && sourceStep.type === 'condition') {
-              const branchIndex = parseInt(handle.split('_')[1], 10);
-              if (sourceStep.branches && sourceStep.branches[branchIndex]) {
-                sourceStep.branches[branchIndex].nextStepId = '';
+              const branch = sourceStep.branches?.find(b => b.id === handle);
+              if (branch) {
+                branch.nextStepId = '';
+              }
+            }
+            // Clear branch nextStepId for RequestStep
+            else if (handle?.startsWith('branch_') && sourceStep.type === 'request' && sourceStep.branches) {
+              const branch = sourceStep.branches.find(b => b.id === handle);
+              if (branch) {
+                branch.nextStepId = '';
               }
             }
             // Remove from loop stepIds

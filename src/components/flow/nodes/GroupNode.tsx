@@ -15,6 +15,7 @@ interface GroupNodeData {
   step: GroupStep;
   status?: StepExecutionStatus;
   selected?: boolean;
+  isStartStep?: boolean;
 }
 
 const getStatusColor = (status?: StepExecutionStatus): string => {
@@ -31,7 +32,7 @@ const getStatusColor = (status?: StepExecutionStatus): string => {
 };
 
 function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
-  const { step, status } = data;
+  const { step, status, isStartStep } = data;
   const statusColor = getStatusColor(status);
   const isCollapsed = step.collapsed ?? false;
 
@@ -41,10 +42,10 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
         minWidth: 200,
         maxWidth: 280,
         backgroundColor: 'background.paper',
-        border: selected ? '2px solid' : '1px dashed',
-        borderColor: selected ? 'primary.main' : 'divider',
+        border: selected ? '2px solid' : isStartStep ? '2px solid' : '1px dashed',
+        borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : 'divider',
         borderRadius: 2,
-        boxShadow: selected ? 3 : 1,
+        boxShadow: selected ? 3 : isStartStep ? 2 : 1,
         transition: 'all 0.2s',
         position: 'relative',
         '&:hover': {
@@ -87,7 +88,7 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
       {/* Node Content */}
       <Box sx={{ p: 2 }}>
         {/* Icon and Type */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
           {isCollapsed ? (
             <FolderIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
           ) : (
@@ -103,6 +104,14 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
               height: 22,
             }}
           />
+          {isStartStep && (
+            <Chip
+              label="START"
+              size="small"
+              color="success"
+              sx={{ fontSize: '0.65rem', height: 20 }}
+            />
+          )}
           {step.executionMode !== 'auto' && (
             <Chip
               label={step.executionMode}

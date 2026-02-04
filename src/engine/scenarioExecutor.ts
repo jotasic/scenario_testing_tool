@@ -168,7 +168,18 @@ export class ScenarioExecutor {
         throw new Error(`Start step "${this.scenario.startStepId}" not found`);
       }
 
-      await this.executeStep(startStep);
+      // Execute steps in sequence following edges
+      let currentStepId: string | null = startStep.id;
+      while (currentStepId && !this.stopped) {
+        const currentStep = this.findStep(currentStepId);
+        if (!currentStep) {
+          this.addLog('warn', `Step "${currentStepId}" not found, stopping execution`);
+          break;
+        }
+
+        const nextStepId = await this.executeStep(currentStep);
+        currentStepId = nextStepId;
+      }
 
       // Mark as completed if not already failed/cancelled
       if (this.status === 'running') {
@@ -583,26 +594,33 @@ export class ScenarioExecutor {
 
   /**
    * Evaluates branches and returns the next step ID
+   * Evaluates conditional branches first, then falls back to default branch
    */
   private evaluateBranches(branches: Branch[]): string | null {
     const context = this.createContext();
 
+    // First, evaluate non-default branches with conditions
     for (const branch of branches) {
-      // Check if this is the default branch
-      if (branch.isDefault) {
-        this.addLog('debug', `Taking default branch to "${branch.nextStepId}"`, {
-          branchId: branch.id,
-        });
-        return branch.nextStepId;
-      }
+      if (branch.isDefault) continue; // Skip default, check it last
 
       // Evaluate branch condition
       if (branch.condition && evaluateCondition(branch.condition, context)) {
         this.addLog('debug', `Branch condition met, going to "${branch.nextStepId}"`, {
           branchId: branch.id,
+          branchLabel: branch.label,
         });
-        return branch.nextStepId;
+        return branch.nextStepId || null;
       }
+    }
+
+    // Then, check for default branch as fallback
+    const defaultBranch = branches.find((b) => b.isDefault);
+    if (defaultBranch) {
+      this.addLog('debug', `Taking default branch to "${defaultBranch.nextStepId}"`, {
+        branchId: defaultBranch.id,
+        branchLabel: defaultBranch.label,
+      });
+      return defaultBranch.nextStepId || null;
     }
 
     // No branch matched
@@ -612,9 +630,13 @@ export class ScenarioExecutor {
 
   /**
    * Gets the next step ID based on scenario edges
+   * Only considers edges from the default (bottom) handle, not branch handles
    */
   private getNextStepId(step: Step): string | null {
-    const edge = this.scenario.edges.find((e) => e.sourceStepId === step.id);
+    // Find edge from this step that doesn't have a branch handle (regular flow)
+    const edge = this.scenario.edges.find(
+      (e) => e.sourceStepId === step.id && !e.sourceHandle?.startsWith('branch_')
+    );
     return edge?.targetStepId ?? null;
   }
 

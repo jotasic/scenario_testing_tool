@@ -93,14 +93,14 @@ export function ConditionBuilder({ value, onChange, depth = 0 }: ConditionBuilde
 
   if (!value) {
     return (
-      <Box sx={{ display: 'flex', gap: 1, ml: depth * 4 }}>
+      <Box sx={{ display: 'flex', gap: 1, ml: depth * 2, flexWrap: 'wrap' }}>
         <Button
           startIcon={<AddIcon />}
           onClick={handleCreateCondition}
           variant="outlined"
           size="small"
         >
-          Add Condition
+          Condition
         </Button>
         <Button
           startIcon={<AddGroupIcon />}
@@ -108,7 +108,7 @@ export function ConditionBuilder({ value, onChange, depth = 0 }: ConditionBuilde
           variant="outlined"
           size="small"
         >
-          Add Group
+          Group
         </Button>
       </Box>
     );
@@ -188,13 +188,13 @@ function ConditionGroupEditor({ value, onChange, onDelete, depth }: ConditionGro
       elevation={depth}
       sx={{
         p: 2,
-        ml: depth * 4,
+        ml: depth * 2,
         border: '1px solid',
         borderColor: 'divider',
         position: 'relative',
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <ToggleButtonGroup
           value={value.operator}
           exclusive
@@ -206,7 +206,7 @@ function ConditionGroupEditor({ value, onChange, onDelete, depth }: ConditionGro
         </ToggleButtonGroup>
 
         <IconButton onClick={onDelete} size="small" color="error">
-          <DeleteIcon />
+          <DeleteIcon fontSize="small" />
         </IconButton>
       </Box>
 
@@ -224,12 +224,12 @@ function ConditionGroupEditor({ value, onChange, onDelete, depth }: ConditionGro
 
       <Divider sx={{ my: 2 }} />
 
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <Button startIcon={<AddIcon />} onClick={handleAddCondition} size="small">
-          Add Condition
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button startIcon={<AddIcon />} onClick={handleAddCondition} size="small" variant="outlined">
+          Condition
         </Button>
-        <Button startIcon={<AddGroupIcon />} onClick={handleAddGroup} size="small">
-          Add Nested Group
+        <Button startIcon={<AddGroupIcon />} onClick={handleAddGroup} size="small" variant="outlined">
+          Group
         </Button>
       </Box>
     </Paper>
@@ -278,80 +278,94 @@ function ConditionEditor({ value, onChange, onDelete, depth, requestSteps }: Con
     <Paper
       sx={{
         p: 2,
-        ml: depth * 4,
+        ml: depth * 2,
         border: '1px solid',
         borderColor: 'divider',
-        display: 'flex',
-        gap: 2,
-        alignItems: 'flex-start',
+        position: 'relative',
       }}
     >
-      <FormControl size="small" sx={{ minWidth: 120 }}>
-        <InputLabel>Source</InputLabel>
-        <Select
-          value={value.source}
-          label="Source"
-          onChange={(e) => handleSourceChange(e.target.value as ConditionSource)}
-        >
-          <MenuItem value="params">Parameters</MenuItem>
-          <MenuItem value="response">Response</MenuItem>
-        </Select>
-      </FormControl>
-
-      {value.source === 'response' && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Step</InputLabel>
-          <Select
-            value={'stepId' in value ? value.stepId : ''}
-            label="Step"
-            onChange={(e) => handleChange('stepId', e.target.value)}
-          >
-            {requestSteps.map((step) => (
-              <MenuItem key={step.id} value={step.id}>
-                {step.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-
-      <TextField
-        label="Field Path"
-        value={value.field}
-        onChange={(e) => handleChange('field', e.target.value)}
+      {/* Delete button at top right */}
+      <IconButton
+        onClick={onDelete}
         size="small"
-        placeholder="e.g., data.status"
-        sx={{ minWidth: 150 }}
-      />
-
-      <FormControl size="small" sx={{ minWidth: 140 }}>
-        <InputLabel>Operator</InputLabel>
-        <Select
-          value={value.operator}
-          label="Operator"
-          onChange={(e) => handleChange('operator', e.target.value)}
-        >
-          {OPERATORS.map((op) => (
-            <MenuItem key={op} value={op}>
-              {OPERATOR_LABELS[op]}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {needsValue && (
-        <TextField
-          label="Value"
-          value={value.value ?? ''}
-          onChange={(e) => handleChange('value', e.target.value)}
-          size="small"
-          sx={{ minWidth: 120 }}
-        />
-      )}
-
-      <IconButton onClick={onDelete} size="small" color="error">
-        <DeleteIcon />
+        color="error"
+        sx={{ position: 'absolute', top: 8, right: 8 }}
+      >
+        <DeleteIcon fontSize="small" />
       </IconButton>
+
+      {/* Condition fields in vertical layout */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pr: 4 }}>
+        {/* Source and Step (if response) in one row */}
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 100, flex: '1 1 100px' }}>
+            <InputLabel>Source</InputLabel>
+            <Select
+              value={value.source}
+              label="Source"
+              onChange={(e) => handleSourceChange(e.target.value as ConditionSource)}
+            >
+              <MenuItem value="params">Parameters</MenuItem>
+              <MenuItem value="response">Response</MenuItem>
+            </Select>
+          </FormControl>
+
+          {value.source === 'response' && (
+            <FormControl size="small" sx={{ minWidth: 120, flex: '1 1 120px' }}>
+              <InputLabel>Step</InputLabel>
+              <Select
+                value={'stepId' in value ? value.stepId : ''}
+                label="Step"
+                onChange={(e) => handleChange('stepId', e.target.value)}
+              >
+                {requestSteps.map((step) => (
+                  <MenuItem key={step.id} value={step.id}>
+                    {step.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+        </Box>
+
+        {/* Field path */}
+        <TextField
+          label="Field Path"
+          value={value.field}
+          onChange={(e) => handleChange('field', e.target.value)}
+          size="small"
+          placeholder="e.g., data.status"
+          fullWidth
+        />
+
+        {/* Operator and Value in one row */}
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 120, flex: '1 1 120px' }}>
+            <InputLabel>Operator</InputLabel>
+            <Select
+              value={value.operator}
+              label="Operator"
+              onChange={(e) => handleChange('operator', e.target.value)}
+            >
+              {OPERATORS.map((op) => (
+                <MenuItem key={op} value={op}>
+                  {OPERATOR_LABELS[op]}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {needsValue && (
+            <TextField
+              label="Value"
+              value={value.value ?? ''}
+              onChange={(e) => handleChange('value', e.target.value)}
+              size="small"
+              sx={{ flex: '1 1 100px' }}
+            />
+          )}
+        </Box>
+      </Box>
     </Paper>
   );
 }

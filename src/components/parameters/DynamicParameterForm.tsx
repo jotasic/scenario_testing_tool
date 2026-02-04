@@ -204,15 +204,37 @@ function renderBooleanField(
 
 /**
  * Render array field
+ * Falls back to JSON editor if no itemSchema defined
  */
 function renderArrayField(
   schema: ParameterSchema,
   value: ParameterValue[],
   onChange: (name: string, value: ParameterValue) => void
 ) {
-  if (!schema.itemSchema) {
-    return null;
+  // If itemSchema is defined, use structured input
+  if (schema.itemSchema) {
+    return (
+      <Box>
+        <FieldLabel
+          name={schema.name}
+          type={schema.type}
+          required={schema.required}
+          description={schema.description}
+        />
+        <Box sx={{ mt: 1 }}>
+          <ArrayFieldInput
+            itemSchema={schema.itemSchema}
+            value={value}
+            onChange={(newValue) => onChange(schema.name, newValue)}
+            name={schema.name}
+          />
+        </Box>
+      </Box>
+    );
   }
+
+  // Fallback to JSON editor for arrays without defined itemSchema
+  const stringValue = JSON.stringify(value, null, 2);
 
   return (
     <Box>
@@ -222,29 +244,69 @@ function renderArrayField(
         required={schema.required}
         description={schema.description}
       />
-      <Box sx={{ mt: 1 }}>
-        <ArrayFieldInput
-          itemSchema={schema.itemSchema}
-          value={value}
-          onChange={(newValue) => onChange(schema.name, newValue)}
-          name={schema.name}
-        />
-      </Box>
+      <TextField
+        fullWidth
+        size="small"
+        multiline
+        rows={6}
+        value={stringValue}
+        onChange={(e) => {
+          try {
+            const parsed = JSON.parse(e.target.value);
+            if (Array.isArray(parsed)) {
+              onChange(schema.name, parsed);
+            }
+          } catch {
+            // Keep as-is while editing invalid JSON
+          }
+        }}
+        placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '[\n  "item1",\n  "item2"\n]'}
+        required={schema.required}
+        helperText="Enter a valid JSON array"
+        sx={{
+          '& .MuiInputBase-input': {
+            fontFamily: 'monospace',
+            fontSize: '0.8rem',
+          },
+        }}
+      />
     </Box>
   );
 }
 
 /**
  * Render object field
+ * Falls back to JSON editor if no properties defined
  */
 function renderObjectField(
   schema: ParameterSchema,
   value: Record<string, ParameterValue>,
   onChange: (name: string, value: ParameterValue) => void
 ) {
-  if (!schema.properties || schema.properties.length === 0) {
-    return null;
+  // If properties are defined, use structured input
+  if (schema.properties && schema.properties.length > 0) {
+    return (
+      <Box>
+        <FieldLabel
+          name={schema.name}
+          type={schema.type}
+          required={schema.required}
+          description={schema.description}
+        />
+        <Box sx={{ mt: 1 }}>
+          <ObjectFieldInput
+            properties={schema.properties}
+            value={value}
+            onChange={(newValue) => onChange(schema.name, newValue)}
+            name={schema.name}
+          />
+        </Box>
+      </Box>
+    );
   }
+
+  // Fallback to JSON editor for objects without defined properties
+  const stringValue = JSON.stringify(value, null, 2);
 
   return (
     <Box>
@@ -254,14 +316,30 @@ function renderObjectField(
         required={schema.required}
         description={schema.description}
       />
-      <Box sx={{ mt: 1 }}>
-        <ObjectFieldInput
-          properties={schema.properties}
-          value={value}
-          onChange={(newValue) => onChange(schema.name, newValue)}
-          name={schema.name}
-        />
-      </Box>
+      <TextField
+        fullWidth
+        size="small"
+        multiline
+        rows={6}
+        value={stringValue}
+        onChange={(e) => {
+          try {
+            const parsed = JSON.parse(e.target.value);
+            onChange(schema.name, parsed);
+          } catch {
+            // Keep as-is while editing invalid JSON
+          }
+        }}
+        placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '{\n  "key": "value"\n}'}
+        required={schema.required}
+        helperText="Enter a valid JSON object"
+        sx={{
+          '& .MuiInputBase-input': {
+            fontFamily: 'monospace',
+            fontSize: '0.8rem',
+          },
+        }}
+      />
     </Box>
   );
 }
