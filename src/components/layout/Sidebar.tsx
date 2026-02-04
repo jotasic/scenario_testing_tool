@@ -43,7 +43,14 @@ interface SidebarProps {
 
 export function Sidebar({ sections = [], selectedItemId, onItemClick }: SidebarProps) {
   const open = useSidebarOpen();
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  // Start with all sections expanded by default
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    sections.forEach(section => {
+      initial[section.id] = true;
+    });
+    return initial;
+  });
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
