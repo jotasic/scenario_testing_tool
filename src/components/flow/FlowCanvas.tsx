@@ -4,7 +4,7 @@
  * Handles node selection and flow interactions
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -114,14 +114,15 @@ function FlowCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Update nodes when steps or results change
-  useMemo(() => {
+  // Using useEffect instead of useMemo for side effects
+  useEffect(() => {
     setNodes(convertStepsToNodes(scenario.steps, stepResults));
   }, [scenario.steps, stepResults, setNodes]);
 
   // Update edges when scenario edges change
-  useMemo(() => {
+  useEffect(() => {
     setEdges(convertScenarioEdges(scenario));
-  }, [scenario, setEdges]);
+  }, [scenario.edges, setEdges]);
 
   // Handle node changes (position, selection, etc.)
   const handleNodesChange = useCallback(
