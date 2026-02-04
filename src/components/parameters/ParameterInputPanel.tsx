@@ -4,7 +4,7 @@
  * Supports both Form and JSON editing modes with bidirectional sync
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -51,9 +51,12 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const isInitialized = useRef(false);
 
-  // Initialize with default values from schema
+  // Initialize with default values from schema (only once on mount)
   useEffect(() => {
+    if (isInitialized.current) return;
+
     const defaultValues: Record<string, ParameterValue> = {};
 
     schemas.forEach((schema) => {
@@ -66,6 +69,7 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
 
     setFormValues(defaultValues);
     setJsonValue(JSON.stringify(defaultValues, null, 2));
+    isInitialized.current = true;
   }, [schemas, initialValues]);
 
   // Sync form to JSON when switching modes
