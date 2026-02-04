@@ -229,10 +229,10 @@ function FlowCanvasInner({
         }}
         deleteKeyCode={readonly ? null : 'Delete'}
         multiSelectionKeyCode={readonly ? null : 'Control'}
-        panOnDrag={!readonly}
+        panOnDrag={true}
         nodesDraggable={!readonly}
         nodesConnectable={!readonly}
-        elementsSelectable={!readonly}
+        elementsSelectable={true}
       >
         <Background
           color="#aaa"

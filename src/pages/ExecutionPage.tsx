@@ -4,20 +4,19 @@
  */
 
 import { useState } from 'react';
-import { Box, Paper, Typography, Tabs, Tab } from '@mui/material';
+import { Box, Paper, Tabs, Tab } from '@mui/material';
 import { FlowCanvas } from '@/components/flow';
 import { ExecutionControls } from '@/components/execution/ExecutionControls';
 import { ExecutionLogs } from '@/components/execution/ExecutionLogs';
 import { StepResultViewer } from '@/components/execution/StepResultViewer';
 import { ParameterInputPanel } from '@/components/parameters/ParameterInputPanel';
 import { EmptyState } from '@/components/common/EmptyState';
-import { useCurrentScenario, useSelectedStepId, useExecutionStatus } from '@/store/hooks';
+import { useCurrentScenario, useSelectedStepId } from '@/store/hooks';
 import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 
 export function ExecutionPage() {
   const currentScenario = useCurrentScenario();
   const selectedStepId = useSelectedStepId();
-  const executionStatus = useExecutionStatus();
   const [rightPanelTab, setRightPanelTab] = useState<'params' | 'result' | 'logs'>('params');
 
   // Show empty state if no scenario
@@ -35,25 +34,16 @@ export function ExecutionPage() {
 
   return (
     <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
-      {/* Top Section: Scenario Info and Controls */}
+      {/* Top Section: Execution Controls - Full Width */}
       <Paper
         elevation={0}
         sx={{
           p: 2,
           borderBottom: 1,
           borderColor: 'divider',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
           flexShrink: 0,
         }}
       >
-        <Box>
-          <Typography variant="h6">{currentScenario.name}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {currentScenario.steps.length} steps | Status: {executionStatus}
-          </Typography>
-        </Box>
         <ExecutionControls />
       </Paper>
 
