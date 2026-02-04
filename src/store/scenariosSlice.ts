@@ -6,6 +6,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Scenario, Step, ScenarioEdge, ParameterSchema } from '@/types';
+import sampleScenario from '@/data/sampleScenario';
 
 interface ScenariosState {
   scenarios: Scenario[];
@@ -13,8 +14,8 @@ interface ScenariosState {
 }
 
 const initialState: ScenariosState = {
-  scenarios: [],
-  currentScenarioId: null,
+  scenarios: [sampleScenario],
+  currentScenarioId: sampleScenario.id,
 };
 
 const scenariosSlice = createSlice({
@@ -217,6 +218,21 @@ const scenariosSlice = createSlice({
         scenario.updatedAt = new Date().toISOString();
       }
     },
+
+    // Bulk operations
+    loadScenarios: (state, action: PayloadAction<Scenario[]>) => {
+      // Replace all scenarios with loaded ones
+      state.scenarios = action.payload;
+      // If current scenario no longer exists, clear selection
+      if (state.currentScenarioId && !action.payload.find(s => s.id === state.currentScenarioId)) {
+        state.currentScenarioId = null;
+      }
+    },
+
+    clearScenarios: (state) => {
+      state.scenarios = [];
+      state.currentScenarioId = null;
+    },
   },
 });
 
@@ -237,6 +253,8 @@ export const {
   addParameterSchema,
   updateParameterSchema,
   deleteParameterSchema,
+  loadScenarios,
+  clearScenarios,
 } = scenariosSlice.actions;
 
 export default scenariosSlice.reducer;

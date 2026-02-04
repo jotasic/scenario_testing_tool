@@ -6,6 +6,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Server } from '@/types';
+import { sampleServers } from '@/data/sampleScenario';
 
 interface ServersState {
   servers: Server[];
@@ -13,21 +14,7 @@ interface ServersState {
 }
 
 const initialState: ServersState = {
-  servers: [
-    {
-      id: 'srv_sample_001',
-      name: 'sample_server',
-      baseUrl: 'https://jsonplaceholder.typicode.com',
-      headers: [
-        { key: 'Content-Type', value: 'application/json', enabled: true },
-        { key: 'Accept', value: 'application/json', enabled: true },
-      ],
-      timeout: 30000,
-      description: 'Sample server for testing',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
+  servers: sampleServers,
   selectedServerId: null,
 };
 
@@ -75,6 +62,21 @@ const serversSlice = createSlice({
         state.servers.push(duplicate);
       }
     },
+
+    // Bulk operations
+    loadServers: (state, action: PayloadAction<Server[]>) => {
+      // Replace all servers with loaded ones
+      state.servers = action.payload;
+      // If selected server no longer exists, clear selection
+      if (state.selectedServerId && !action.payload.find(s => s.id === state.selectedServerId)) {
+        state.selectedServerId = null;
+      }
+    },
+
+    clearServers: (state) => {
+      state.servers = [];
+      state.selectedServerId = null;
+    },
   },
 });
 
@@ -84,6 +86,8 @@ export const {
   deleteServer,
   setSelectedServer,
   duplicateServer,
+  loadServers,
+  clearServers,
 } = serversSlice.actions;
 
 export default serversSlice.reducer;

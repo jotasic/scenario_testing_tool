@@ -26,12 +26,9 @@ import {
   useExecutionStatistics,
 } from '@/store/hooks';
 import {
-  startExecution,
-  pauseExecution,
-  resumeExecution,
-  stopExecution,
   resetExecution,
 } from '@/store/executionSlice';
+import { useScenarioExecution } from '@/hooks/useScenarioExecution';
 import type { ExecutionStatus } from '@/types';
 
 const STATUS_CONFIG: Record<
@@ -53,28 +50,34 @@ export function ExecutionControls() {
   const scenario = useCurrentScenario();
   const stats = useExecutionStatistics();
 
+  // Use the execution hook to control the engine
+  const {
+    executeScenario,
+    pauseExecution: pause,
+    resumeExecution: resume,
+    stopExecution: stop,
+  } = useScenarioExecution();
+
   const handleStart = () => {
     if (!scenario) return;
 
-    dispatch(
-      startExecution({
-        scenarioId: scenario.id,
-        params: context?.params || {},
-        stepModeOverrides: context?.stepModeOverrides || {},
-      })
+    // Execute scenario with current parameters
+    executeScenario(
+      context?.params || {},
+      context?.stepModeOverrides || {}
     );
   };
 
   const handlePause = () => {
-    dispatch(pauseExecution());
+    pause();
   };
 
   const handleResume = () => {
-    dispatch(resumeExecution());
+    resume();
   };
 
   const handleStop = () => {
-    dispatch(stopExecution('cancelled'));
+    stop();
   };
 
   const handleReset = () => {
