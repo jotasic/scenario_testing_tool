@@ -3,7 +3,8 @@
  * Wraps axios with variable resolution and error handling
  */
 
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError } from 'axios';
+import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { HttpMethod, Server, StepHeader } from '../types';
 import { resolveVariables, type VariableContext } from './variableResolver';
 
@@ -45,15 +46,24 @@ export interface HttpRequestConfig {
  * HTTP error with additional context
  */
 export class HttpRequestError extends Error {
+  readonly status?: number;
+  readonly statusText?: string;
+  readonly response?: unknown;
+  override readonly cause?: Error;
+
   constructor(
     message: string,
-    public readonly status?: number,
-    public readonly statusText?: string,
-    public readonly response?: unknown,
-    public readonly cause?: Error
+    status?: number,
+    statusText?: string,
+    response?: unknown,
+    cause?: Error
   ) {
     super(message);
     this.name = 'HttpRequestError';
+    this.status = status;
+    this.statusText = statusText;
+    this.response = response;
+    this.cause = cause;
   }
 }
 

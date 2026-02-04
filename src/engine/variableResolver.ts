@@ -135,7 +135,7 @@ export function resolveStringVariables(
   template: string,
   context: VariableContext
 ): string {
-  return template.replace(VARIABLE_PATTERN, (match, path) => {
+  return template.replace(VARIABLE_PATTERN, (_match, path) => {
     const value = resolveVariablePath(path, context);
 
     // Convert value to string

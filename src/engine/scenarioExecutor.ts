@@ -22,16 +22,14 @@ import type {
 } from '../types';
 import {
   createVariableContext,
-  resolveVariables,
   type VariableContext,
 } from './variableResolver';
 import { evaluateCondition, evaluateOptionalCondition } from './conditionEvaluator';
 import {
   createLoopIterator,
   updateWhileLoopCondition,
-  type LoopIterator,
 } from './loopProcessor';
-import { executeStepRequest, type HttpResponse } from './httpClient';
+import { executeStepRequest } from './httpClient';
 
 /**
  * Callback functions for execution events
