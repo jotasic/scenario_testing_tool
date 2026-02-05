@@ -370,6 +370,72 @@ export class ScenarioExecutor {
       }
 
       const context = this.createContext();
+
+      // Check if we should wait for response
+      if (!step.waitForResponse) {
+        // Fire-and-forget mode: send request without waiting
+        this.addLog('info', `Sending request without waiting for response (fire-and-forget)`, {
+          stepId: step.id,
+        });
+
+        // Execute request in background
+        executeStepRequest(
+          server,
+          step.method,
+          step.endpoint,
+          step.headers,
+          step.body,
+          step.queryParams,
+          step.timeout,
+          context
+        ).then((response) => {
+          // Log successful response when it arrives
+          this.addLog('info', `Background request completed: ${response.status} (${response.duration}ms)`, {
+            stepId: step.id,
+          });
+
+          // Save response if configured
+          if (step.saveResponse) {
+            const alias = step.responseAlias || step.id;
+            this.responses.set(alias, response.data);
+            this.addLog('debug', `Background response saved as "${alias}"`, {
+              stepId: step.id,
+            });
+          }
+        }).catch((error) => {
+          // Log error when it arrives
+          const message = error instanceof Error ? error.message : String(error);
+          this.addLog('warn', `Background request failed: ${message}`, {
+            stepId: step.id,
+            error,
+          });
+        });
+
+        // Mark step as completed immediately
+        this.setStepResult(step.id, {
+          stepId: step.id,
+          status: 'success',
+          startedAt: startTime,
+          completedAt: new Date().toISOString(),
+          request: {
+            url: `${server.baseUrl}${step.endpoint}`,
+            method: step.method,
+            headers: step.headers.reduce((acc, h) => {
+              if (h.enabled) acc[h.key] = h.value;
+              return acc;
+            }, {} as Record<string, string>),
+            body: step.body,
+          },
+        });
+
+        this.addLog('info', `Request sent, continuing to next step without waiting`, {
+          stepId: step.id,
+        });
+
+        return this.getNextStepId(step);
+      }
+
+      // Standard mode: wait for response
       const response = await executeStepRequest(
         server,
         step.method,
