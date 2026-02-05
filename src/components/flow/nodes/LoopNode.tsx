@@ -3,18 +3,16 @@
  * Displays loop type, iteration info, and child steps inline
  */
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import type { NodeProps } from 'reactflow';
-import { Box, Typography, Chip, Stack, LinearProgress } from '@mui/material';
+import { Box, Typography, Chip, LinearProgress } from '@mui/material';
 import LoopIcon from '@mui/icons-material/Loop';
 import RepeatIcon from '@mui/icons-material/Repeat';
-import HttpIcon from '@mui/icons-material/Http';
-import AltRouteIcon from '@mui/icons-material/AltRoute';
-import FolderIcon from '@mui/icons-material/Folder';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
-import type { LoopStep, Step, StepExecutionStatus, ConditionStep } from '@/types';
+import type { LoopStep, Step, StepExecutionStatus } from '@/types';
+import { useDispatch } from 'react-redux';
+import { setSelectedStep } from '@/store/uiSlice';
+import { RecursiveStepList } from './shared';
 
 interface LoopNodeData {
   step: LoopStep;
@@ -63,39 +61,11 @@ const getLoopInfo = (step: LoopStep): string => {
   }
 };
 
-const getStepIcon = (type: string) => {
-  switch (type) {
-    case 'request':
-      return <HttpIcon sx={{ fontSize: 14 }} />;
-    case 'condition':
-      return <AltRouteIcon sx={{ fontSize: 14 }} />;
-    case 'loop':
-      return <LoopIcon sx={{ fontSize: 14 }} />;
-    case 'group':
-      return <FolderIcon sx={{ fontSize: 14 }} />;
-    default:
-      return null;
-  }
-};
-
-const getStepColor = (type: string) => {
-  switch (type) {
-    case 'request':
-      return '#1976d2';
-    case 'condition':
-      return '#ed6c02';
-    case 'loop':
-      return '#9c27b0';
-    case 'group':
-      return '#0288d1';
-    default:
-      return '#757575';
-  }
-};
-
 function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
   const { step, status, currentIteration, totalIterations, isStartStep, allSteps = [] } = data;
   const statusColor = getStatusColor(status);
+  const dispatch = useDispatch();
+  const [collapsedStepIds, setCollapsedStepIds] = useState<Set<string>>(new Set());
 
   // Resolve child steps
   const childSteps = useMemo(() => {
@@ -104,21 +74,29 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
       .filter((s): s is Step => s !== undefined);
   }, [step.stepIds, allSteps]);
 
-  // Helper to get step name by ID
-  const getStepNameById = (stepId: string): string => {
-    const targetStep = allSteps.find((s) => s.id === stepId);
-    return targetStep?.name || '(unknown)';
-  };
-
-  // Check if a step is inside the loop
-  const isStepInLoop = (stepId: string): boolean => {
-    return step.stepIds.includes(stepId);
-  };
-
   // Calculate progress percentage
   const progressPercent = currentIteration !== undefined && totalIterations !== undefined && totalIterations > 0
     ? ((currentIteration + 1) / totalIterations) * 100
     : 0;
+
+  // Handle clicking on a child step or branch target
+  const handleStepClick = useCallback((stepId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering parent node selection
+    dispatch(setSelectedStep(stepId));
+  }, [dispatch]);
+
+  // Handle collapse toggle
+  const handleToggleCollapse = useCallback((stepId: string) => {
+    setCollapsedStepIds(prev => {
+      const next = new Set(prev);
+      if (next.has(stepId)) {
+        next.delete(stepId);
+      } else {
+        next.add(stepId);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <Box
@@ -129,12 +107,21 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
         border: selected ? '4px solid' : isStartStep ? '3px solid' : '3px solid',
         borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : '#9c27b0',
         borderRadius: 3,
-        boxShadow: selected ? '0 8px 24px rgba(156, 39, 176, 0.4)' : isStartStep ? '0 4px 12px rgba(76, 175, 80, 0.3)' : '0 4px 16px rgba(156, 39, 176, 0.25)',
+        boxShadow: selected ? '0 8px 24px rgba(156, 39, 176, 0.4)' : isStartStep ? '0 4px 12px rgba(76, 175, 80, 0.3)' : status === 'running' ? '0 0 20px rgba(33, 150, 243, 0.6)' : '0 4px 16px rgba(156, 39, 176, 0.25)',
         transition: 'all 0.2s',
         position: 'relative',
         overflow: 'hidden',
+        animation: status === 'running' ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+        '@keyframes pulse-glow': {
+          '0%, 100%': {
+            boxShadow: status === 'running' ? '0 0 10px rgba(33, 150, 243, 0.4)' : '0 4px 16px rgba(156, 39, 176, 0.25)',
+          },
+          '50%': {
+            boxShadow: '0 0 25px rgba(33, 150, 243, 0.8), 0 0 35px rgba(33, 150, 243, 0.6)',
+          },
+        },
         '&:hover': {
-          boxShadow: '0 8px 32px rgba(156, 39, 176, 0.35)',
+          boxShadow: status === 'running' ? '0 0 30px rgba(33, 150, 243, 0.8)' : '0 8px 32px rgba(156, 39, 176, 0.35)',
           transform: 'translateY(-2px)',
         },
       }}
@@ -288,222 +275,61 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
           background: 'linear-gradient(to bottom, rgba(156, 39, 176, 0.03), rgba(156, 39, 176, 0.08))',
         }}
       >
-        {childSteps.length === 0 ? (
-          <Typography
-            variant="caption"
+        {/* Loop indicator */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            px: 1,
+            py: 0.5,
+            bgcolor: 'rgba(156, 39, 176, 0.1)',
+            borderRadius: 1,
+            borderLeft: '4px solid #9c27b0',
+            mb: 1,
+          }}
+        >
+          <LoopIcon sx={{ fontSize: 14, color: '#9c27b0' }} />
+          <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#9c27b0' }}>
+            LOOP BODY ({childSteps.length} step{childSteps.length !== 1 ? 's' : ''})
+          </Typography>
+        </Box>
+
+        {/* Recursive Step List */}
+        <RecursiveStepList
+          steps={childSteps}
+          allSteps={allSteps}
+          containerType="loop"
+          containerColor="#9c27b0"
+          depth={0}
+          maxDepth={4}
+          collapsedStepIds={collapsedStepIds}
+          autoCollapseDepth={2}
+          onStepClick={handleStepClick}
+          onToggleCollapse={handleToggleCollapse}
+          parentStepIds={step.stepIds}
+        />
+
+        {/* Loop back indicator */}
+        {childSteps.length > 0 && (
+          <Box
             sx={{
-              color: 'text.secondary',
-              fontStyle: 'italic',
-              display: 'block',
-              textAlign: 'center',
-              py: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 0.75,
+              mt: 1,
+              p: 1,
+              bgcolor: 'rgba(156, 39, 176, 0.1)',
+              borderRadius: 1,
+              border: '2px dashed #9c27b0',
             }}
           >
-            No steps in loop body
-          </Typography>
-        ) : (
-          <Stack spacing={0.5}>
-            {/* Loop indicator */}
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                px: 1,
-                py: 0.5,
-                bgcolor: 'rgba(156, 39, 176, 0.1)',
-                borderRadius: 1,
-                borderLeft: '4px solid #9c27b0',
-                mb: 1,
-              }}
-            >
-              <LoopIcon sx={{ fontSize: 14, color: '#9c27b0' }} />
-              <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#9c27b0' }}>
-                LOOP BODY ({childSteps.length} step{childSteps.length !== 1 ? 's' : ''})
-              </Typography>
-            </Box>
-
-            {childSteps.map((childStep, index) => (
-              <Box key={childStep.id}>
-                {/* Arrow between steps */}
-                {index > 0 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.25 }}>
-                    <ArrowDownwardIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-                  </Box>
-                )}
-                {/* Child Step Item */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    p: 1,
-                    bgcolor: 'white',
-                    borderRadius: 1.5,
-                    border: '2px solid',
-                    borderColor: 'divider',
-                    borderLeft: '4px solid',
-                    borderLeftColor: getStepColor(childStep.type),
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                    transition: 'all 0.2s',
-                    // Enhanced visual for nested containers
-                    ...(childStep.type === 'loop' || childStep.type === 'group' ? {
-                      bgcolor: `${getStepColor(childStep.type)}08`,
-                      borderWidth: '3px',
-                      fontWeight: 700,
-                    } : {}),
-                    '&:hover': {
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                      transform: 'translateX(4px)',
-                    },
-                  }}
-                >
-                  <Box sx={{ color: getStepColor(childStep.type), display: 'flex' }}>
-                    {getStepIcon(childStep.type)}
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      flex: 1,
-                      fontWeight: (childStep.type === 'loop' || childStep.type === 'group') ? 700 : 500,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: '0.7rem',
-                    }}
-                  >
-                    {childStep.name}
-                    {(childStep.type === 'loop' || childStep.type === 'group') && (
-                      <Typography component="span" sx={{ ml: 0.5, fontSize: '0.6rem', opacity: 0.7 }}>
-                        ({(childStep as any).stepIds?.length || 0} steps)
-                      </Typography>
-                    )}
-                  </Typography>
-                  <Chip
-                    label={childStep.type}
-                    size="small"
-                    sx={{
-                      fontSize: '0.55rem',
-                      height: 16,
-                      bgcolor: `${getStepColor(childStep.type)}15`,
-                      color: getStepColor(childStep.type),
-                      fontWeight: 600,
-                    }}
-                  />
-                </Box>
-
-                {/* Condition Branches Visualization */}
-                {childStep.type === 'condition' && (childStep as ConditionStep).branches.length > 0 && (
-                  <Box
-                    sx={{
-                      ml: 2,
-                      mt: 0.5,
-                      pl: 1,
-                      borderLeft: '2px solid',
-                      borderColor: '#ed6c02',
-                    }}
-                  >
-                    {(childStep as ConditionStep).branches.map((branch, branchIndex) => {
-                      // Determine target step info
-                      const hasNextStepId = branch.nextStepId && branch.nextStepId !== '';
-                      const isInLoop = hasNextStepId && isStepInLoop(branch.nextStepId);
-
-                      let targetName = '(no target)';
-                      let isExitingLoop = false;
-
-                      if (hasNextStepId) {
-                        const targetStepName = getStepNameById(branch.nextStepId);
-                        if (targetStepName && targetStepName !== '(unknown)') {
-                          // Step exists
-                          if (isInLoop) {
-                            targetName = targetStepName;
-                          } else {
-                            // Step exists but outside loop - this exits the loop
-                            targetName = `${targetStepName} (exit loop)`;
-                            isExitingLoop = true;
-                          }
-                        } else {
-                          // Step ID set but step not found
-                          targetName = '(unknown step)';
-                        }
-                      }
-
-                      const branchLabel = branch.label || (branch.isDefault ? 'default' : `branch ${branchIndex + 1}`);
-
-                      return (
-                        <Box
-                          key={branch.id}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            py: 0.25,
-                            fontSize: '0.65rem',
-                            color: 'text.secondary',
-                          }}
-                        >
-                          <SubdirectoryArrowRightIcon sx={{ fontSize: 12, color: '#ed6c02' }} />
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: '0.65rem',
-                              fontWeight: 600,
-                              color: '#ed6c02',
-                            }}
-                          >
-                            {branchLabel}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: '0.65rem',
-                              color: 'text.secondary',
-                            }}
-                          >
-                            →
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: '0.65rem',
-                              color: isInLoop ? 'text.primary' : isExitingLoop ? 'warning.main' : 'text.disabled',
-                              fontStyle: isInLoop ? 'normal' : 'italic',
-                              fontWeight: isExitingLoop ? 600 : 400,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {targetName}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                )}
-              </Box>
-            ))}
-
-            {/* Loop back indicator */}
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: 0.75,
-                mt: 1,
-                p: 1,
-                bgcolor: 'rgba(156, 39, 176, 0.1)',
-                borderRadius: 1,
-                border: '2px dashed #9c27b0',
-              }}
-            >
-              <RepeatIcon sx={{ fontSize: 16, color: '#9c27b0' }} />
-              <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 700, color: '#9c27b0' }}>
-                REPEAT TO START
-              </Typography>
-            </Box>
-          </Stack>
+            <RepeatIcon sx={{ fontSize: 16, color: '#9c27b0' }} />
+            <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 700, color: '#9c27b0' }}>
+              REPEAT TO START
+            </Typography>
+          </Box>
         )}
       </Box>
 
