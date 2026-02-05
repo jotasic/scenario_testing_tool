@@ -41,7 +41,8 @@ interface FlowCanvasProps {
 /**
  * Recursively collect all step IDs that are inside containers (Loop/Group)
  * This includes nested containers to any depth
- * Also collects branch target steps from Condition/Request steps inside containers
+ * NOTE: Branch targets from Condition/Request steps are NOT collected as container children
+ * because they may point outside the container
  */
 function collectStepIdsInContainers(steps: Step[]): Set<string> {
   const stepsInsideContainers = new Set<string>();
@@ -52,12 +53,12 @@ function collectStepIdsInContainers(steps: Step[]): Set<string> {
       // Skip if already processed to avoid infinite loops
       if (stepsInsideContainers.has(id)) return;
 
-      // Add this step ID
-      stepsInsideContainers.add(id);
-
-      // Find the actual step
+      // Find the actual step first to verify it exists
       const childStep = steps.find(s => s.id === id);
-      if (!childStep) return;
+      if (!childStep) return; // Skip non-existent steps
+
+      // Add this step ID only after verifying it exists
+      stepsInsideContainers.add(id);
 
       // If this step is also a container, recursively collect its children
       if (childStep.type === 'loop' || childStep.type === 'group') {
@@ -66,16 +67,8 @@ function collectStepIdsInContainers(steps: Step[]): Set<string> {
         }
       }
 
-      // If this step is a Condition or Request with branches, collect branch target steps
-      if (childStep.type === 'condition' || (childStep.type === 'request' && childStep.branches)) {
-        const branches = childStep.branches || [];
-        branches.forEach(branch => {
-          if (branch.nextStepId) {
-            // Recursively collect this branch target and its descendants
-            collectFromContainer([branch.nextStepId]);
-          }
-        });
-      }
+      // DO NOT collect branch targets from Condition/Request steps
+      // Branch targets may point outside the container and should be rendered separately
     });
   };
 
@@ -192,7 +185,7 @@ function FlowCanvasInner({
   // Update edges when scenario edges change
   useEffect(() => {
     setEdges(convertScenarioEdges(scenario, readonly));
-  }, [scenario.edges, setEdges, readonly]);
+  }, [scenario, setEdges, readonly]);
 
   // Handle node changes (position, selection, etc.)
   const handleNodesChange = useCallback(

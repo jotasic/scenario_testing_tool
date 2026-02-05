@@ -187,7 +187,18 @@ export function importFromJson(json: string): Scenario {
   try {
     const parsed = JSON.parse(json);
     validateScenario(parsed);
-    return parsed as Scenario;
+    const scenario = parsed as Scenario;
+
+    // Ensure all steps have valid position data
+    scenario.steps = scenario.steps.map((step, index) => ({
+      ...step,
+      position: step.position || { x: 100 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 150 }
+    }));
+
+    // Sanitize container step references to only include existing steps
+    sanitizeStepReferences(scenario);
+
+    return scenario;
   } catch (error) {
     console.error('Failed to import from JSON:', error);
     if (error instanceof SyntaxError) {
@@ -220,7 +231,18 @@ export function importFromYaml(yamlString: string): Scenario {
   try {
     const parsed = yaml.load(yamlString);
     validateScenario(parsed);
-    return parsed as Scenario;
+    const scenario = parsed as Scenario;
+
+    // Ensure all steps have valid position data
+    scenario.steps = scenario.steps.map((step, index) => ({
+      ...step,
+      position: step.position || { x: 100 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 150 }
+    }));
+
+    // Sanitize container step references to only include existing steps
+    sanitizeStepReferences(scenario);
+
+    return scenario;
   } catch (error) {
     console.error('Failed to import from YAML:', error);
     if (error instanceof yaml.YAMLException) {
@@ -259,6 +281,39 @@ export function importServersFromJson(json: string): Server[] {
       throw new Error('Invalid JSON format');
     }
     throw new Error(`Failed to import servers from JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Sanitize step references in a scenario to remove references to non-existent steps
+ * This prevents rendering issues when importing scenarios with invalid references
+ */
+function sanitizeStepReferences(scenario: Scenario): void {
+  const validStepIds = new Set(scenario.steps.map(step => step.id));
+
+  scenario.steps.forEach(step => {
+    // Clean up Loop and Group container stepIds
+    if ((step.type === 'loop' || step.type === 'group') && step.stepIds) {
+      step.stepIds = step.stepIds.filter(id => validStepIds.has(id));
+    }
+
+    // Clean up Condition and Request branch nextStepIds
+    if ((step.type === 'condition' || step.type === 'request') && step.branches) {
+      step.branches = step.branches.map(branch => ({
+        ...branch,
+        nextStepId: branch.nextStepId && validStepIds.has(branch.nextStepId) ? branch.nextStepId : ''
+      }));
+    }
+  });
+
+  // Clean up scenario edges to only include edges between existing steps
+  scenario.edges = scenario.edges.filter(
+    edge => validStepIds.has(edge.sourceStepId) && validStepIds.has(edge.targetStepId)
+  );
+
+  // Verify startStepId exists, if not set to first step or empty
+  if (!validStepIds.has(scenario.startStepId)) {
+    scenario.startStepId = scenario.steps.length > 0 ? scenario.steps[0].id : '';
   }
 }
 
