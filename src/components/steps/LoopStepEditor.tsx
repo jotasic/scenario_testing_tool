@@ -23,12 +23,14 @@ import {
   Alert,
   Button,
   Menu,
+  Tooltip,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import type { LoopStep, LoopType, ForEachLoop, CountLoop, WhileLoop, Step, RequestStep, ConditionStep, LoopStep as LoopStepType, GroupStep } from '@/types';
 import { useCurrentSteps, useCurrentScenario, useAppDispatch } from '@/store/hooks';
 import { addStep } from '@/store/scenariosSlice';
 import { ConditionBuilder } from './ConditionBuilder';
+import { wouldExceedNestingLimit, getNestingLimitMessage } from '@/utils/nestingUtils';
 
 interface LoopStepEditorProps {
   step: LoopStep;
@@ -55,6 +57,11 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
   const scenario = useCurrentScenario();
   const dispatch = useAppDispatch();
   const [createMenuAnchor, setCreateMenuAnchor] = useState<null | HTMLElement>(null);
+
+  // Check if adding nested containers would exceed the nesting limit
+  const exceedsNestingLimit = useMemo(() => {
+    return wouldExceedNestingLimit(step.id, steps);
+  }, [step.id, steps]);
 
   // Get available steps (not already in this loop and not this step itself)
   const availableSteps = useMemo(() => {
@@ -427,36 +434,56 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
               />
               Condition Step
             </MenuItem>
-            <MenuItem onClick={() => handleCreateNewStep('loop')}>
-              <Chip
-                label="loop"
-                size="small"
-                sx={{
-                  bgcolor: `${getStepColor('loop')}15`,
-                  color: getStepColor('loop'),
-                  fontWeight: 600,
-                  fontSize: '0.65rem',
-                  height: 20,
-                  mr: 1,
-                }}
-              />
-              Loop Step (nested)
-            </MenuItem>
-            <MenuItem onClick={() => handleCreateNewStep('group')}>
-              <Chip
-                label="group"
-                size="small"
-                sx={{
-                  bgcolor: `${getStepColor('group')}15`,
-                  color: getStepColor('group'),
-                  fontWeight: 600,
-                  fontSize: '0.65rem',
-                  height: 20,
-                  mr: 1,
-                }}
-              />
-              Group Step (nested)
-            </MenuItem>
+            <Tooltip
+              title={exceedsNestingLimit ? getNestingLimitMessage() : ''}
+              placement="left"
+            >
+              <span>
+                <MenuItem
+                  onClick={() => handleCreateNewStep('loop')}
+                  disabled={exceedsNestingLimit}
+                >
+                  <Chip
+                    label="loop"
+                    size="small"
+                    sx={{
+                      bgcolor: `${getStepColor('loop')}15`,
+                      color: exceedsNestingLimit ? 'text.disabled' : getStepColor('loop'),
+                      fontWeight: 600,
+                      fontSize: '0.65rem',
+                      height: 20,
+                      mr: 1,
+                    }}
+                  />
+                  Loop Step (nested)
+                </MenuItem>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={exceedsNestingLimit ? getNestingLimitMessage() : ''}
+              placement="left"
+            >
+              <span>
+                <MenuItem
+                  onClick={() => handleCreateNewStep('group')}
+                  disabled={exceedsNestingLimit}
+                >
+                  <Chip
+                    label="group"
+                    size="small"
+                    sx={{
+                      bgcolor: `${getStepColor('group')}15`,
+                      color: exceedsNestingLimit ? 'text.disabled' : getStepColor('group'),
+                      fontWeight: 600,
+                      fontSize: '0.65rem',
+                      height: 20,
+                      mr: 1,
+                    }}
+                  />
+                  Group Step (nested)
+                </MenuItem>
+              </span>
+            </Tooltip>
           </Menu>
         </Box>
 
