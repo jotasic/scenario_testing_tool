@@ -6,5 +6,6 @@
 export { ExecutionControls } from './ExecutionControls';
 export { ExecutionLogs } from './ExecutionLogs';
 export { ExecutionProgress } from './ExecutionProgress';
+export { ExecutionProgressTable } from './ExecutionProgressTable';
 export { StepResultViewer } from './StepResultViewer';
 export { ManualStepDialog } from './ManualStepDialog';

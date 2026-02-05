@@ -98,6 +98,11 @@ export const useStepResult = (stepId: string | null | undefined) => {
   );
 };
 
+export const useStepResults = () => {
+  const context = useExecutionContext();
+  return context?.stepResults || {};
+};
+
 export const useExecutionLogs = () => {
   const context = useExecutionContext();
   const filterLevel = useAppSelector(state => state.ui.logFilterLevel);

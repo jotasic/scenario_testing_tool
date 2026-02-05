@@ -8,12 +8,14 @@ import { Box, Paper, Tabs, Tab, IconButton, Tooltip, Stack } from '@mui/material
 import { FlowCanvas } from '@/components/flow';
 import { ExecutionControls } from '@/components/execution/ExecutionControls';
 import { ExecutionLogs } from '@/components/execution/ExecutionLogs';
+import { ExecutionProgressTable } from '@/components/execution/ExecutionProgressTable';
 import { StepResultViewer } from '@/components/execution/StepResultViewer';
 import { ManualStepDialog } from '@/components/execution/ManualStepDialog';
 import { ParameterInputPanel } from '@/components/parameters/ParameterInputPanel';
 import { EmptyState } from '@/components/common/EmptyState';
-import { useCurrentScenario, useSelectedStepId, useAppDispatch, useExecutionStatus, useCurrentExecutionStep, useStepResult } from '@/store/hooks';
+import { useCurrentScenario, useSelectedStepId, useAppDispatch, useExecutionStatus, useCurrentExecutionStep, useStepResult, useStepResults } from '@/store/hooks';
 import { autoLayoutSteps } from '@/store/scenariosSlice';
+import { setSelectedStep } from '@/store/uiSlice';
 import {
   PlayArrow as PlayArrowIcon,
   ViewStream as VerticalIcon,
@@ -27,7 +29,8 @@ export function ExecutionPage() {
   const executionStatus = useExecutionStatus();
   const currentStep = useCurrentExecutionStep();
   const currentStepResult = useStepResult(currentStep?.id);
-  const [rightPanelTab, setRightPanelTab] = useState<'params' | 'result' | 'logs'>('params');
+  const stepResults = useStepResults();
+  const [rightPanelTab, setRightPanelTab] = useState<'params' | 'result' | 'logs' | 'progress'>('params');
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
 
   // Show manual step dialog when execution is paused and current step is waiting
@@ -134,7 +137,7 @@ export function ExecutionPage() {
               </IconButton>
             </Tooltip>
           </Stack>
-          <FlowCanvas scenario={currentScenario} readonly={true} />
+          <FlowCanvas scenario={currentScenario} stepResults={stepResults} readonly={true} />
         </Box>
 
         {/* Right: Tabs Panel */}
@@ -155,10 +158,11 @@ export function ExecutionPage() {
           >
             <Tab label="Parameters" value="params" />
             <Tab label="Step Result" value="result" />
+            <Tab label="Progress" value="progress" />
             <Tab label="Logs" value="logs" />
           </Tabs>
 
-          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+          <Box sx={{ flexGrow: 1, overflow: 'auto', p: rightPanelTab === 'progress' ? 0 : 2 }}>
             {rightPanelTab === 'params' && (
               <ParameterInputPanel
                 schemas={currentScenario.parameterSchema || []}
@@ -177,6 +181,18 @@ export function ExecutionPage() {
                   message="Click on a step in the flow diagram to view its execution result."
                 />
               )
+            )}
+
+            {rightPanelTab === 'progress' && (
+              <ExecutionProgressTable
+                scenario={currentScenario}
+                stepResults={stepResults}
+                onStepClick={(stepId) => {
+                  // Switch to result tab and select the step
+                  setRightPanelTab('result');
+                  dispatch(setSelectedStep(stepId));
+                }}
+              />
             )}
 
             {rightPanelTab === 'logs' && <ExecutionLogs />}

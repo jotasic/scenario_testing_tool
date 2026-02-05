@@ -279,6 +279,15 @@ function FlowCanvasInner({
           stroke: '#42a5f5',
           strokeWidth: 2.5,
         },
+        // Running step glow effect
+        '@keyframes pulse-glow': {
+          '0%, 100%': {
+            filter: 'drop-shadow(0 0 5px #2196F3)',
+          },
+          '50%': {
+            filter: 'drop-shadow(0 0 20px #2196F3) drop-shadow(0 0 30px #2196F3)',
+          },
+        },
       }}
     >
       <ReactFlow

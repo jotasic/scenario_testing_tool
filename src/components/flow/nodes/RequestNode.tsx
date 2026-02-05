@@ -54,11 +54,20 @@ function RequestNode({ data, selected }: NodeProps<RequestNodeData>) {
         border: selected ? '2px solid' : isStartStep ? '2px solid' : '1px solid',
         borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : 'divider',
         borderRadius: 2,
-        boxShadow: selected ? 3 : isStartStep ? 2 : 1,
+        boxShadow: selected ? 3 : isStartStep ? 2 : status === 'running' ? '0 0 20px rgba(33, 150, 243, 0.6)' : 1,
         transition: 'all 0.2s',
         position: 'relative',
+        animation: status === 'running' ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+        '@keyframes pulse-glow': {
+          '0%, 100%': {
+            boxShadow: '0 0 10px rgba(33, 150, 243, 0.4)',
+          },
+          '50%': {
+            boxShadow: '0 0 25px rgba(33, 150, 243, 0.8), 0 0 35px rgba(33, 150, 243, 0.6)',
+          },
+        },
         '&:hover': {
-          boxShadow: 3,
+          boxShadow: status === 'running' ? '0 0 30px rgba(33, 150, 243, 0.8)' : 3,
         },
       }}
     >
