@@ -25,7 +25,7 @@ import {
   Menu,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
-import type { LoopStep, LoopType, ForEachLoop, CountLoop, WhileLoop, Step, RequestStep, ConditionStep } from '@/types';
+import type { LoopStep, LoopType, ForEachLoop, CountLoop, WhileLoop, Step, RequestStep, ConditionStep, LoopStep as LoopStepType, GroupStep } from '@/types';
 import { useCurrentSteps, useCurrentScenario, useAppDispatch } from '@/store/hooks';
 import { addStep } from '@/store/scenariosSlice';
 import { ConditionBuilder } from './ConditionBuilder';
@@ -164,7 +164,7 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
   );
 
   const handleCreateNewStep = useCallback(
-    (stepType: 'request' | 'condition') => {
+    (stepType: 'request' | 'condition' | 'loop' | 'group') => {
       if (!scenario) return;
 
       const timestamp = Date.now();
@@ -191,7 +191,7 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
           waitForResponse: true,
           saveResponse: true,
         } as RequestStep;
-      } else {
+      } else if (stepType === 'condition') {
         newStep = {
           id: stepId,
           name: `New Condition`,
@@ -201,6 +201,31 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
           position: { x: baseX, y: baseY },
           branches: [],
         } as ConditionStep;
+      } else if (stepType === 'loop') {
+        newStep = {
+          id: stepId,
+          name: `New Loop`,
+          type: 'loop',
+          description: '',
+          executionMode: 'auto',
+          position: { x: baseX, y: baseY },
+          loop: {
+            id: `loop_${timestamp}`,
+            type: 'count',
+            count: 1,
+          },
+          stepIds: [],
+        } as LoopStepType;
+      } else {
+        newStep = {
+          id: stepId,
+          name: `New Group`,
+          type: 'group',
+          description: '',
+          executionMode: 'auto',
+          position: { x: baseX, y: baseY },
+          stepIds: [],
+        } as GroupStep;
       }
 
       // Add step to scenario
@@ -401,6 +426,36 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
                 }}
               />
               Condition Step
+            </MenuItem>
+            <MenuItem onClick={() => handleCreateNewStep('loop')}>
+              <Chip
+                label="loop"
+                size="small"
+                sx={{
+                  bgcolor: `${getStepColor('loop')}15`,
+                  color: getStepColor('loop'),
+                  fontWeight: 600,
+                  fontSize: '0.65rem',
+                  height: 20,
+                  mr: 1,
+                }}
+              />
+              Loop Step (nested)
+            </MenuItem>
+            <MenuItem onClick={() => handleCreateNewStep('group')}>
+              <Chip
+                label="group"
+                size="small"
+                sx={{
+                  bgcolor: `${getStepColor('group')}15`,
+                  color: getStepColor('group'),
+                  fontWeight: 600,
+                  fontSize: '0.65rem',
+                  height: 20,
+                  mr: 1,
+                }}
+              />
+              Group Step (nested)
             </MenuItem>
           </Menu>
         </Box>

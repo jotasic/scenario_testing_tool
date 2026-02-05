@@ -270,6 +270,12 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
                     borderLeftColor: getStepColor(childStep.type),
                     boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                     transition: 'all 0.2s',
+                    // Enhanced visual for nested containers
+                    ...(childStep.type === 'loop' || childStep.type === 'group' ? {
+                      bgcolor: `${getStepColor(childStep.type)}08`,
+                      borderWidth: '3px',
+                      fontWeight: 700,
+                    } : {}),
                     '&:hover': {
                       boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
                       transform: 'translateX(4px)',
@@ -283,7 +289,7 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
                     variant="caption"
                     sx={{
                       flex: 1,
-                      fontWeight: 500,
+                      fontWeight: (childStep.type === 'loop' || childStep.type === 'group') ? 700 : 500,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -291,6 +297,11 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
                     }}
                   >
                     {childStep.name}
+                    {(childStep.type === 'loop' || childStep.type === 'group') && (
+                      <Typography component="span" sx={{ ml: 0.5, fontSize: '0.6rem', opacity: 0.7 }}>
+                        ({(childStep as any).stepIds?.length || 0} steps)
+                      </Typography>
+                    )}
                   </Typography>
                   <Chip
                     label={childStep.type}

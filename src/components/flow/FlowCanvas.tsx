@@ -39,6 +39,37 @@ interface FlowCanvasProps {
 }
 
 /**
+ * Recursively collect all step IDs that are inside containers (Loop/Group)
+ * This includes nested containers to any depth
+ */
+function collectStepIdsInContainers(steps: Step[]): Set<string> {
+  const stepsInsideContainers = new Set<string>();
+
+  // Helper function to recursively collect step IDs
+  const collectFromContainer = (stepIds: string[]) => {
+    stepIds.forEach(id => {
+      // Add this step ID
+      stepsInsideContainers.add(id);
+
+      // If this step is also a container, recursively collect its children
+      const childStep = steps.find(s => s.id === id);
+      if (childStep && (childStep.type === 'loop' || childStep.type === 'group')) {
+        collectFromContainer(childStep.stepIds);
+      }
+    });
+  };
+
+  // Start collection from all top-level containers
+  steps.forEach(step => {
+    if ((step.type === 'loop' || step.type === 'group') && step.stepIds) {
+      collectFromContainer(step.stepIds);
+    }
+  });
+
+  return stepsInsideContainers;
+}
+
+/**
  * Convert scenario steps to ReactFlow nodes
  * Filters out steps that are inside Loop/Group containers to prevent duplicate display
  */
@@ -48,14 +79,8 @@ function convertStepsToNodes(
   startStepId?: string,
   readonly: boolean = false
 ): Node[] {
-  // Get all step IDs that are inside Loop or Group containers
-  const stepsInsideContainers = new Set<string>();
-
-  steps.forEach(step => {
-    if ((step.type === 'loop' || step.type === 'group') && step.stepIds) {
-      step.stepIds.forEach(id => stepsInsideContainers.add(id));
-    }
-  });
+  // Get all step IDs that are inside Loop or Group containers (recursively)
+  const stepsInsideContainers = collectStepIdsInContainers(steps);
 
   // Only create nodes for steps that are NOT inside containers
   return steps

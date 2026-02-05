@@ -303,64 +303,67 @@ export function StepEditor() {
       </Paper>
 
       {/* Container Management - Move to/from Loop/Group */}
-      {step.type !== 'loop' && step.type !== 'group' && (
-        <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-          <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <MoveIcon fontSize="small" />
-            Container Management
-          </Typography>
+      <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+        <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <MoveIcon fontSize="small" />
+          Container Management
+        </Typography>
 
-          {parentContainer ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Alert severity="info" sx={{ alignItems: 'center' }}>
-                <Typography variant="body2">
-                  This step is currently inside: <strong>{parentContainer.name}</strong> ({parentContainer.type})
+        {parentContainer ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Alert severity="info" sx={{ alignItems: 'center' }}>
+              <Typography variant="body2">
+                This step is currently inside: <strong>{parentContainer.name}</strong> ({parentContainer.type})
+              </Typography>
+            </Alert>
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<RemoveIcon />}
+              onClick={handleRemoveFromContainer}
+              fullWidth
+            >
+              Remove from {parentContainer.type}
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Move this step inside a Loop or Group container
+              {(step.type === 'loop' || step.type === 'group') && (
+                <Typography component="span" sx={{ display: 'block', mt: 0.5, fontStyle: 'italic', fontSize: '0.875rem' }}>
+                  (Nested containers supported)
+                </Typography>
+              )}
+            </Typography>
+            <FormControl fullWidth>
+              <InputLabel>Move to Container</InputLabel>
+              <Select
+                value=""
+                label="Move to Container"
+                onChange={(e) => handleMoveToContainer(e.target.value)}
+              >
+                {availableContainers.length === 0 ? (
+                  <MenuItem disabled>No available containers</MenuItem>
+                ) : (
+                  availableContainers.map((container) => (
+                    <MenuItem key={container.id} value={container.id}>
+                      {container.name} ({container.type})
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
+            {availableContainers.length === 0 && (
+              <Alert severity="info">
+                <Typography variant="caption">
+                  Create a Loop or Group step first to organize steps together.
                 </Typography>
               </Alert>
-              <Button
-                variant="outlined"
-                color="warning"
-                startIcon={<RemoveIcon />}
-                onClick={handleRemoveFromContainer}
-                fullWidth
-              >
-                Remove from {parentContainer.type}
-              </Button>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Move this step inside a Loop or Group container
-              </Typography>
-              <FormControl fullWidth>
-                <InputLabel>Move to Container</InputLabel>
-                <Select
-                  value=""
-                  label="Move to Container"
-                  onChange={(e) => handleMoveToContainer(e.target.value)}
-                >
-                  {availableContainers.length === 0 ? (
-                    <MenuItem disabled>No available containers</MenuItem>
-                  ) : (
-                    availableContainers.map((container) => (
-                      <MenuItem key={container.id} value={container.id}>
-                        {container.name} ({container.type})
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
-              {availableContainers.length === 0 && (
-                <Alert severity="info">
-                  <Typography variant="caption">
-                    Create a Loop or Group step first to organize steps together.
-                  </Typography>
-                </Alert>
-              )}
-            </Box>
-          )}
-        </Paper>
-      )}
+            )}
+          </Box>
+        )}
+      </Paper>
 
       {/* Pre-condition */}
       <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
