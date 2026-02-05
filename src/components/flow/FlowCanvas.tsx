@@ -54,8 +54,8 @@ function convertStepsToNodes(
       id: step.id,
       type: step.type,
       position: step.position,
-      // Prevent keyboard deletion of nodes - use UI buttons instead
-      deletable: false,
+      // Allow deletion via keyboard or UI buttons
+      deletable: !readonly,
       selectable: true,
       draggable: !readonly,
       data: {
