@@ -123,18 +123,19 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
   return (
     <Box
       sx={{
-        minWidth: 220,
-        maxWidth: 320,
-        backgroundColor: '#fafafa',
-        border: selected ? '3px solid' : isStartStep ? '2px solid' : '2px solid',
+        minWidth: 240,
+        maxWidth: 340,
+        backgroundColor: '#f3e5f5',
+        border: selected ? '4px solid' : isStartStep ? '3px solid' : '3px solid',
         borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : '#9c27b0',
         borderRadius: 3,
-        boxShadow: selected ? 4 : isStartStep ? 2 : 1,
+        boxShadow: selected ? '0 8px 24px rgba(156, 39, 176, 0.4)' : isStartStep ? '0 4px 12px rgba(76, 175, 80, 0.3)' : '0 4px 16px rgba(156, 39, 176, 0.25)',
         transition: 'all 0.2s',
         position: 'relative',
         overflow: 'hidden',
         '&:hover': {
-          boxShadow: 4,
+          boxShadow: '0 8px 32px rgba(156, 39, 176, 0.35)',
+          transform: 'translateY(-2px)',
         },
       }}
     >
@@ -281,7 +282,12 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
       )}
 
       {/* Child Steps Content */}
-      <Box sx={{ p: 1.5 }}>
+      <Box
+        sx={{
+          p: 1.5,
+          background: 'linear-gradient(to bottom, rgba(156, 39, 176, 0.03), rgba(156, 39, 176, 0.08))',
+        }}
+      >
         {childSteps.length === 0 ? (
           <Typography
             variant="caption"
@@ -303,14 +309,17 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 0.5,
-                px: 0.5,
-                py: 0.25,
-                color: 'text.secondary',
+                px: 1,
+                py: 0.5,
+                bgcolor: 'rgba(156, 39, 176, 0.1)',
+                borderRadius: 1,
+                borderLeft: '4px solid #9c27b0',
+                mb: 1,
               }}
             >
-              <LoopIcon sx={{ fontSize: 12 }} />
-              <Typography variant="caption" sx={{ fontSize: '0.6rem', fontWeight: 600 }}>
-                LOOP BODY
+              <LoopIcon sx={{ fontSize: 14, color: '#9c27b0' }} />
+              <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#9c27b0' }}>
+                LOOP BODY ({childSteps.length} step{childSteps.length !== 1 ? 's' : ''})
               </Typography>
             </Box>
 
@@ -328,13 +337,19 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.75,
-                    p: 0.75,
+                    p: 1,
                     bgcolor: 'white',
-                    borderRadius: 1,
-                    border: '1px solid',
+                    borderRadius: 1.5,
+                    border: '2px solid',
                     borderColor: 'divider',
-                    borderLeft: '3px solid',
+                    borderLeft: '4px solid',
                     borderLeftColor: getStepColor(childStep.type),
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                      transform: 'translateX(4px)',
+                    },
                   }}
                 >
                   <Box sx={{ color: getStepColor(childStep.type), display: 'flex' }}>
@@ -464,14 +479,17 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                gap: 0.5,
-                pt: 0.5,
-                color: '#9c27b0',
+                gap: 0.75,
+                mt: 1,
+                p: 1,
+                bgcolor: 'rgba(156, 39, 176, 0.1)',
+                borderRadius: 1,
+                border: '2px dashed #9c27b0',
               }}
             >
-              <RepeatIcon sx={{ fontSize: 14 }} />
-              <Typography variant="caption" sx={{ fontSize: '0.6rem', fontWeight: 600 }}>
-                REPEAT
+              <RepeatIcon sx={{ fontSize: 16, color: '#9c27b0' }} />
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 700, color: '#9c27b0' }}>
+                REPEAT TO START
               </Typography>
             </Box>
           </Stack>

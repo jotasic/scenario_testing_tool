@@ -95,19 +95,19 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
   return (
     <Box
       sx={{
-        minWidth: 220,
-        maxWidth: 320,
-        backgroundColor: '#fafafa',
-        border: selected ? '3px solid' : isStartStep ? '2px solid' : '2px dashed',
-        borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : '#9e9e9e',
+        minWidth: 240,
+        maxWidth: 340,
+        backgroundColor: '#e3f2fd',
+        border: selected ? '4px solid' : isStartStep ? '3px solid' : '3px solid',
+        borderColor: selected ? 'primary.main' : isStartStep ? 'success.main' : '#0288d1',
         borderRadius: 3,
-        boxShadow: selected ? 4 : isStartStep ? 2 : 1,
+        boxShadow: selected ? '0 8px 24px rgba(2, 136, 209, 0.4)' : isStartStep ? '0 4px 12px rgba(76, 175, 80, 0.3)' : '0 4px 16px rgba(2, 136, 209, 0.25)',
         transition: 'all 0.2s',
         position: 'relative',
         overflow: 'hidden',
         '&:hover': {
-          boxShadow: 4,
-          borderColor: selected ? 'primary.main' : '#757575',
+          boxShadow: '0 8px 32px rgba(2, 136, 209, 0.35)',
+          transform: 'translateY(-2px)',
         },
       }}
     >
@@ -127,7 +127,7 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
       <Box
         sx={{
           p: 1.5,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #0288d1 0%, #01579b 100%)',
           color: 'white',
         }}
       >
@@ -200,7 +200,12 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
       )}
 
       {/* Child Steps Content */}
-      <Box sx={{ p: 1.5 }}>
+      <Box
+        sx={{
+          p: 1.5,
+          background: 'linear-gradient(to bottom, rgba(2, 136, 209, 0.03), rgba(2, 136, 209, 0.08))',
+        }}
+      >
         {childSteps.length === 0 ? (
           <Typography
             variant="caption"
@@ -223,6 +228,25 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
           </Typography>
         ) : (
           <Stack spacing={0.5}>
+            {/* Group indicator */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                px: 1,
+                py: 0.5,
+                bgcolor: 'rgba(2, 136, 209, 0.1)',
+                borderRadius: 1,
+                borderLeft: '4px solid #0288d1',
+                mb: 1,
+              }}
+            >
+              <FolderOpenIcon sx={{ fontSize: 14, color: '#0288d1' }} />
+              <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#0288d1' }}>
+                GROUP CONTENTS ({childSteps.length} step{childSteps.length !== 1 ? 's' : ''})
+              </Typography>
+            </Box>
             {childSteps.map((childStep, index) => (
               <Box key={childStep.id}>
                 {/* Arrow between steps */}
@@ -237,13 +261,19 @@ function GroupNode({ data, selected }: NodeProps<GroupNodeData>) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.75,
-                    p: 0.75,
+                    p: 1,
                     bgcolor: 'white',
-                    borderRadius: 1,
-                    border: '1px solid',
+                    borderRadius: 1.5,
+                    border: '2px solid',
                     borderColor: 'divider',
-                    borderLeft: '3px solid',
+                    borderLeft: '4px solid',
                     borderLeftColor: getStepColor(childStep.type),
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                      transform: 'translateX(4px)',
+                    },
                   }}
                 >
                   <Box sx={{ color: getStepColor(childStep.type), display: 'flex' }}>
