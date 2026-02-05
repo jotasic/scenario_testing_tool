@@ -41,6 +41,7 @@ interface FlowCanvasProps {
 /**
  * Recursively collect all step IDs that are inside containers (Loop/Group)
  * This includes nested containers to any depth
+ * Also collects branch target steps from Condition steps inside containers
  */
 function collectStepIdsInContainers(steps: Step[]): Set<string> {
   const stepsInsideContainers = new Set<string>();
@@ -51,10 +52,24 @@ function collectStepIdsInContainers(steps: Step[]): Set<string> {
       // Add this step ID
       stepsInsideContainers.add(id);
 
-      // If this step is also a container, recursively collect its children
+      // Find the actual step
       const childStep = steps.find(s => s.id === id);
-      if (childStep && (childStep.type === 'loop' || childStep.type === 'group')) {
+      if (!childStep) return;
+
+      // If this step is also a container, recursively collect its children
+      if (childStep.type === 'loop' || childStep.type === 'group') {
         collectFromContainer(childStep.stepIds);
+      }
+
+      // If this step is a Condition or has branches, collect branch target steps
+      if (childStep.type === 'condition' || (childStep.type === 'request' && childStep.branches)) {
+        const branches = childStep.branches || [];
+        branches.forEach(branch => {
+          if (branch.nextStepId && !stepsInsideContainers.has(branch.nextStepId)) {
+            // Recursively collect this branch target and its descendants
+            collectFromContainer([branch.nextStepId]);
+          }
+        });
       }
     });
   };
