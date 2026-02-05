@@ -66,10 +66,16 @@ export function GroupStepEditor({ step, allSteps, onChange }: GroupStepEditorPro
   );
 
   const handleRemoveStep = useCallback(
-    (stepId: string) => {
-      onChange({
-        stepIds: step.stepIds.filter((id) => id !== stepId),
-      });
+    (stepId: string, stepName: string) => {
+      if (
+        confirm(
+          `Remove "${stepName}" from this group?\n\nThe step will become a standalone step in the flow.`
+        )
+      ) {
+        onChange({
+          stepIds: step.stepIds.filter((id) => id !== stepId),
+        });
+      }
     },
     [step.stepIds, onChange]
   );
@@ -335,9 +341,9 @@ export function GroupStepEditor({ step, allSteps, onChange }: GroupStepEditorPro
                     <IconButton
                       edge="end"
                       size="small"
-                      color="error"
-                      onClick={() => handleRemoveStep(childStep.id)}
-                      title="Remove from group"
+                      color="warning"
+                      onClick={() => handleRemoveStep(childStep.id, childStep.name)}
+                      title="Remove from group (step will become standalone)"
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>

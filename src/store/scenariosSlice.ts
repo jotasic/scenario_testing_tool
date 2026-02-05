@@ -325,6 +325,37 @@ const scenariosSlice = createSlice({
       }
     },
 
+    // Container operations (Loop/Group)
+    addStepToContainer: (
+      state,
+      action: PayloadAction<{ scenarioId: string; containerId: string; stepId: string }>
+    ) => {
+      const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
+      if (scenario) {
+        const container = scenario.steps.find(s => s.id === action.payload.containerId);
+        if (container && (container.type === 'loop' || container.type === 'group')) {
+          if (!container.stepIds.includes(action.payload.stepId)) {
+            container.stepIds.push(action.payload.stepId);
+            scenario.updatedAt = new Date().toISOString();
+          }
+        }
+      }
+    },
+
+    removeStepFromContainer: (
+      state,
+      action: PayloadAction<{ scenarioId: string; containerId: string; stepId: string }>
+    ) => {
+      const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
+      if (scenario) {
+        const container = scenario.steps.find(s => s.id === action.payload.containerId);
+        if (container && (container.type === 'loop' || container.type === 'group')) {
+          container.stepIds = container.stepIds.filter(id => id !== action.payload.stepId);
+          scenario.updatedAt = new Date().toISOString();
+        }
+      }
+    },
+
     // Bulk operations
     loadScenarios: (state, action: PayloadAction<Scenario[]>) => {
       // Replace all scenarios with loaded ones
@@ -356,6 +387,8 @@ export const {
   addEdge,
   updateEdge,
   deleteEdge,
+  addStepToContainer,
+  removeStepFromContainer,
   setParameterSchema,
   addParameterSchema,
   updateParameterSchema,

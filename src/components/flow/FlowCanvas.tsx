@@ -40,6 +40,7 @@ interface FlowCanvasProps {
 
 /**
  * Convert scenario steps to ReactFlow nodes
+ * Filters out steps that are inside Loop/Group containers to prevent duplicate display
  */
 function convertStepsToNodes(
   steps: Step[],
@@ -47,28 +48,40 @@ function convertStepsToNodes(
   startStepId?: string,
   readonly: boolean = false
 ): Node[] {
-  return steps.map(step => {
-    const result = stepResults?.[step.id];
+  // Get all step IDs that are inside Loop or Group containers
+  const stepsInsideContainers = new Set<string>();
 
-    return {
-      id: step.id,
-      type: step.type,
-      position: step.position,
-      // Allow deletion via keyboard or UI buttons
-      deletable: !readonly,
-      selectable: true,
-      draggable: !readonly,
-      data: {
-        step,
-        status: result?.status,
-        currentIteration: result?.currentIteration,
-        totalIterations: result?.iterations,
-        isStartStep: step.id === startStepId,
-        // Pass all steps for Group and Loop nodes to resolve child steps
-        allSteps: (step.type === 'group' || step.type === 'loop') ? steps : undefined,
-      },
-    };
+  steps.forEach(step => {
+    if ((step.type === 'loop' || step.type === 'group') && step.stepIds) {
+      step.stepIds.forEach(id => stepsInsideContainers.add(id));
+    }
   });
+
+  // Only create nodes for steps that are NOT inside containers
+  return steps
+    .filter(step => !stepsInsideContainers.has(step.id))
+    .map(step => {
+      const result = stepResults?.[step.id];
+
+      return {
+        id: step.id,
+        type: step.type,
+        position: step.position,
+        // Allow deletion via keyboard or UI buttons
+        deletable: !readonly,
+        selectable: true,
+        draggable: !readonly,
+        data: {
+          step,
+          status: result?.status,
+          currentIteration: result?.currentIteration,
+          totalIterations: result?.iterations,
+          isStartStep: step.id === startStepId,
+          // Pass all steps for Group and Loop nodes to resolve child steps
+          allSteps: (step.type === 'group' || step.type === 'loop') ? steps : undefined,
+        },
+      };
+    });
 }
 
 /**

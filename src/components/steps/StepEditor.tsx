@@ -17,10 +17,22 @@ import {
   Alert,
   Button,
 } from '@mui/material';
-import { ArrowForward as ArrowIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import type { Step, ExecutionMode } from '@/types';
+import {
+  ArrowForward as ArrowIcon,
+  Delete as DeleteIcon,
+  MoveDown as MoveIcon,
+  ExitToApp as RemoveIcon,
+} from '@mui/icons-material';
+import type { Step, ExecutionMode, LoopStep, GroupStep } from '@/types';
 import { useCurrentScenario, useSelectedStep, useAppDispatch } from '@/store/hooks';
-import { updateStep, addEdge, deleteEdge, deleteStep } from '@/store/scenariosSlice';
+import {
+  updateStep,
+  addEdge,
+  deleteEdge,
+  deleteStep,
+  addStepToContainer,
+  removeStepFromContainer,
+} from '@/store/scenariosSlice';
 import { setSelectedStep } from '@/store/uiSlice';
 import { RequestStepEditor } from './RequestStepEditor';
 import { ConditionStepEditor } from './ConditionStepEditor';
@@ -74,6 +86,25 @@ export function StepEditor() {
   // Get other steps (excluding current step) for next step selection
   const otherSteps = useMemo(() => {
     return scenario.steps.filter((s) => s.id !== step.id);
+  }, [scenario.steps, step.id]);
+
+  // Find which container (Loop/Group) this step is inside, if any
+  const parentContainer = useMemo(() => {
+    return scenario.steps.find(
+      (s) =>
+        (s.type === 'loop' || s.type === 'group') &&
+        (s as LoopStep | GroupStep).stepIds.includes(step.id)
+    ) as (LoopStep | GroupStep) | undefined;
+  }, [scenario.steps, step.id]);
+
+  // Get available containers (Loop/Group) that this step can be moved into
+  const availableContainers = useMemo(() => {
+    return scenario.steps.filter(
+      (s) =>
+        (s.type === 'loop' || s.type === 'group') &&
+        s.id !== step.id &&
+        !(s as LoopStep | GroupStep).stepIds.includes(step.id)
+    ) as (LoopStep | GroupStep)[];
   }, [scenario.steps, step.id]);
 
   // Handle next step change - creates or updates edge
@@ -131,6 +162,38 @@ export function StepEditor() {
     if (confirm('Are you sure you want to delete this step?')) {
       dispatch(deleteStep({ scenarioId: scenario.id, stepId: step.id }));
       dispatch(setSelectedStep(null));
+    }
+  };
+
+  // Handle moving step into a container
+  const handleMoveToContainer = (containerId: string) => {
+    if (!containerId) return;
+
+    dispatch(
+      addStepToContainer({
+        scenarioId: scenario.id,
+        containerId,
+        stepId: step.id,
+      })
+    );
+  };
+
+  // Handle removing step from its parent container
+  const handleRemoveFromContainer = () => {
+    if (!parentContainer) return;
+
+    if (
+      confirm(
+        `Remove "${step.name}" from ${parentContainer.type} "${parentContainer.name}"?\n\nThe step will become a standalone step in the flow.`
+      )
+    ) {
+      dispatch(
+        removeStepFromContainer({
+          scenarioId: scenario.id,
+          containerId: parentContainer.id,
+          stepId: step.id,
+        })
+      );
     }
   };
 
@@ -238,6 +301,66 @@ export function StepEditor() {
           </Typography>
         </Alert>
       </Paper>
+
+      {/* Container Management - Move to/from Loop/Group */}
+      {step.type !== 'loop' && step.type !== 'group' && (
+        <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <MoveIcon fontSize="small" />
+            Container Management
+          </Typography>
+
+          {parentContainer ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Alert severity="info" sx={{ alignItems: 'center' }}>
+                <Typography variant="body2">
+                  This step is currently inside: <strong>{parentContainer.name}</strong> ({parentContainer.type})
+                </Typography>
+              </Alert>
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<RemoveIcon />}
+                onClick={handleRemoveFromContainer}
+                fullWidth
+              >
+                Remove from {parentContainer.type}
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Move this step inside a Loop or Group container
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>Move to Container</InputLabel>
+                <Select
+                  value=""
+                  label="Move to Container"
+                  onChange={(e) => handleMoveToContainer(e.target.value)}
+                >
+                  {availableContainers.length === 0 ? (
+                    <MenuItem disabled>No available containers</MenuItem>
+                  ) : (
+                    availableContainers.map((container) => (
+                      <MenuItem key={container.id} value={container.id}>
+                        {container.name} ({container.type})
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+              {availableContainers.length === 0 && (
+                <Alert severity="info">
+                  <Typography variant="caption">
+                    Create a Loop or Group step first to organize steps together.
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
+          )}
+        </Paper>
+      )}
 
       {/* Pre-condition */}
       <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
