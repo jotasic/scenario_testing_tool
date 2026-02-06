@@ -10,10 +10,11 @@ import { ExecutionControls } from '@/components/execution/ExecutionControls';
 import { ExecutionLogs } from '@/components/execution/ExecutionLogs';
 import { ExecutionProgressTable } from '@/components/execution/ExecutionProgressTable';
 import { StepResultViewer } from '@/components/execution/StepResultViewer';
+import { StepDetailPanel } from '@/components/execution/StepDetailPanel';
 import { ManualStepDialog } from '@/components/execution/ManualStepDialog';
 import { ParameterInputPanel } from '@/components/parameters/ParameterInputPanel';
 import { EmptyState } from '@/components/common/EmptyState';
-import { useCurrentScenario, useSelectedStepId, useAppDispatch, useExecutionStatus, useCurrentExecutionStep, useStepResult, useStepResults } from '@/store/hooks';
+import { useCurrentScenario, useSelectedStepId, useAppDispatch, useExecutionStatus, useCurrentExecutionStep, useStepResult, useStepResults, useStepById } from '@/store/hooks';
 import { autoLayoutSteps } from '@/store/scenariosSlice';
 import { setSelectedStep } from '@/store/uiSlice';
 import {
@@ -26,11 +27,13 @@ export function ExecutionPage() {
   const dispatch = useAppDispatch();
   const currentScenario = useCurrentScenario();
   const selectedStepId = useSelectedStepId();
+  const selectedStep = useStepById(selectedStepId);
+  const selectedStepResult = useStepResult(selectedStepId);
   const executionStatus = useExecutionStatus();
   const currentStep = useCurrentExecutionStep();
   const currentStepResult = useStepResult(currentStep?.id);
   const stepResults = useStepResults();
-  const [rightPanelTab, setRightPanelTab] = useState<'params' | 'result' | 'logs' | 'progress'>('params');
+  const [rightPanelTab, setRightPanelTab] = useState<'params' | 'detail' | 'result' | 'logs' | 'progress'>('params');
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
 
   // Show manual step dialog when execution is paused and current step is waiting
@@ -155,8 +158,11 @@ export function ExecutionPage() {
             value={rightPanelTab}
             onChange={(_, newValue) => setRightPanelTab(newValue)}
             sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}
+            variant="scrollable"
+            scrollButtons="auto"
           >
             <Tab label="Parameters" value="params" />
+            <Tab label="Step Detail" value="detail" />
             <Tab label="Step Result" value="result" />
             <Tab label="Progress" value="progress" />
             <Tab label="Logs" value="logs" />
@@ -170,6 +176,21 @@ export function ExecutionPage() {
                   setParams(values);
                 }}
               />
+            )}
+
+            {rightPanelTab === 'detail' && (
+              selectedStep && currentScenario ? (
+                <StepDetailPanel
+                  step={selectedStep}
+                  stepResult={selectedStepResult || undefined}
+                  scenario={currentScenario}
+                />
+              ) : (
+                <EmptyState
+                  title="No Step Selected"
+                  message="Click on a step in the flow diagram to view detailed information."
+                />
+              )
             )}
 
             {rightPanelTab === 'result' && (
@@ -188,8 +209,8 @@ export function ExecutionPage() {
                 scenario={currentScenario}
                 stepResults={stepResults}
                 onStepClick={(stepId) => {
-                  // Switch to result tab and select the step
-                  setRightPanelTab('result');
+                  // Switch to detail tab and select the step
+                  setRightPanelTab('detail');
                   dispatch(setSelectedStep(stepId));
                 }}
               />
