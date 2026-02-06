@@ -29,6 +29,7 @@ import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import type { GroupStep, Step, RequestStep, ConditionStep, LoopStep } from '@/types';
 import { useCurrentScenario, useAppDispatch } from '@/store/hooks';
 import { addStep } from '@/store/scenariosSlice';
+import { MiniFlowPreview } from './MiniFlowPreview';
 import { wouldExceedNestingLimit, getNestingLimitMessage } from '@/utils/nestingUtils';
 
 interface GroupStepEditorProps {
@@ -41,6 +42,9 @@ export function GroupStepEditor({ step, allSteps, onChange }: GroupStepEditorPro
   const scenario = useCurrentScenario();
   const dispatch = useAppDispatch();
   const [createMenuAnchor, setCreateMenuAnchor] = useState<null | HTMLElement>(null);
+
+  // Get edges for mini flow preview
+  const edges = scenario?.edges || [];
 
   // Check if adding nested containers would exceed the nesting limit
   const exceedsNestingLimit = useMemo(() => {
@@ -470,6 +474,20 @@ export function GroupStepEditor({ step, allSteps, onChange }: GroupStepEditorPro
             {childSteps.map((s) => s.name).join(' -> ')}
           </Typography>
         </Alert>
+      )}
+
+      {/* Mini Flow Preview */}
+      {step.stepIds.length > 0 && (
+        <Box>
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>
+            Flow Preview
+          </Typography>
+          <MiniFlowPreview
+            stepIds={step.stepIds}
+            allSteps={allSteps}
+            edges={edges}
+          />
+        </Box>
       )}
     </Box>
   );
