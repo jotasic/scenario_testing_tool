@@ -3,7 +3,7 @@
  * Configuration mode page with 3-column resizable layout: Sidebar - Editor - Graph
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -43,6 +43,7 @@ import { AddServerDialog } from '@/components/servers/AddServerDialog';
 import { AddStepDialog } from '@/components/steps/AddStepDialog';
 import { ParameterSchemaEditor } from '@/components/parameters/ParameterSchemaEditor';
 import FlowCanvas from '@/components/flow/FlowCanvas';
+import { FlowBreadcrumbs, type NavigationLevel } from '@/components/flow/FlowBreadcrumbs';
 import {
   useServers,
   useCurrentScenario,
@@ -78,12 +79,124 @@ export function ConfigPage() {
   // Editor panel mode
   const [editorMode, setEditorMode] = useState<'item' | 'parameters'>('item');
 
+  // Navigation state for nested graph
+  const [navigationPath, setNavigationPath] = useState<NavigationLevel[]>([]);
+
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
       ...prev,
       [sectionId]: !prev[sectionId],
     }));
   };
+
+  /**
+   * Get the current container ID based on navigation path
+   * Returns null if at root level
+   */
+  const currentContainerId = navigationPath.length > 0
+    ? navigationPath[navigationPath.length - 1].stepId
+    : null;
+
+  /**
+   * Collect all step IDs that are inside containers
+   */
+  const collectStepIdsInContainers = useCallback((steps: Step[]): Set<string> => {
+    const stepsInsideContainers = new Set<string>();
+
+    const collectFromContainer = (stepIds: string[]) => {
+      stepIds.forEach(id => {
+        if (stepsInsideContainers.has(id)) return;
+        const childStep = steps.find(s => s.id === id);
+        if (!childStep) return;
+
+        stepsInsideContainers.add(id);
+
+        if (childStep.type === 'loop' || childStep.type === 'group') {
+          if (childStep.stepIds && childStep.stepIds.length > 0) {
+            collectFromContainer(childStep.stepIds);
+          }
+        }
+      });
+    };
+
+    steps.forEach(step => {
+      if ((step.type === 'loop' || step.type === 'group') && step.stepIds && step.stepIds.length > 0) {
+        collectFromContainer(step.stepIds);
+      }
+    });
+
+    return stepsInsideContainers;
+  }, []);
+
+  /**
+   * Get filtered steps for the current navigation level
+   */
+  const filteredSteps = useMemo(() => {
+    if (!currentScenario) return [];
+
+    if (!currentContainerId) {
+      // Root level: show steps not inside any container
+      const stepsInContainers = collectStepIdsInContainers(steps);
+      return steps.filter(s => !stepsInContainers.has(s.id));
+    } else {
+      // Inside a container: show only steps in that container
+      const container = steps.find(s => s.id === currentContainerId);
+      if (container && (container.type === 'loop' || container.type === 'group')) {
+        return container.stepIds
+          .map(id => steps.find(s => s.id === id))
+          .filter((s): s is Step => s !== undefined);
+      }
+      return [];
+    }
+  }, [currentScenario, currentContainerId, steps, collectStepIdsInContainers]);
+
+  /**
+   * Get filtered edges for the current navigation level
+   */
+  const filteredEdges = useMemo(() => {
+    if (!currentScenario) return [];
+
+    const currentStepIds = new Set(filteredSteps.map(s => s.id));
+    return currentScenario.edges.filter(
+      edge => currentStepIds.has(edge.sourceStepId) && currentStepIds.has(edge.targetStepId)
+    );
+  }, [currentScenario, filteredSteps]);
+
+  /**
+   * Handle navigation to a specific level
+   * index: -1 for root, otherwise the index in navigationPath
+   */
+  const handleNavigate = useCallback((index: number) => {
+    if (index === -1) {
+      // Navigate to root
+      setNavigationPath([]);
+    } else {
+      // Navigate to specific level (truncate path)
+      setNavigationPath(prev => prev.slice(0, index + 1));
+    }
+  }, []);
+
+  /**
+   * Handle node double click - navigate into container
+   */
+  const handleNodeDoubleClick = useCallback((stepId: string, stepType: string) => {
+    // Only navigate into loop/group containers
+    if (stepType !== 'loop' && stepType !== 'group') {
+      return;
+    }
+
+    const step = steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    // Add to navigation path
+    setNavigationPath(prev => [
+      ...prev,
+      {
+        stepId: step.id,
+        name: step.name,
+      },
+    ]);
+  }, [steps]);
 
   const handleItemClick = (sectionId: string, itemId: string) => {
     if (sectionId === 'servers') {
@@ -520,18 +633,30 @@ export function ConfigPage() {
           </Stack>
         )}
       </Paper>
+
+      {/* Breadcrumbs for nested navigation */}
+      {currentScenario && (
+        <FlowBreadcrumbs
+          path={navigationPath}
+          onNavigate={handleNavigate}
+        />
+      )}
+
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         {currentScenario ? (
           <FlowCanvas
             scenario={currentScenario}
             selectedStepId={selectedStepId}
             onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}
             readonly={false}
             showMinimap={true}
             showGrid={true}
+            filteredSteps={filteredSteps}
+            filteredEdges={filteredEdges}
           />
         ) : (
           <EmptyState

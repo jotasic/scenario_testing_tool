@@ -3,9 +3,10 @@
  * Execution mode page with flow visualization, controls, and logs
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Box, Paper, Tabs, Tab, IconButton, Tooltip, Stack } from '@mui/material';
 import { FlowCanvas } from '@/components/flow';
+import { FlowBreadcrumbs, type NavigationLevel } from '@/components/flow/FlowBreadcrumbs';
 import { ExecutionControls } from '@/components/execution/ExecutionControls';
 import { ExecutionLogs } from '@/components/execution/ExecutionLogs';
 import { ExecutionProgressTable } from '@/components/execution/ExecutionProgressTable';
@@ -17,6 +18,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { useCurrentScenario, useSelectedStepId, useAppDispatch, useExecutionStatus, useCurrentExecutionStep, useStepResult, useStepResults, useStepById } from '@/store/hooks';
 import { autoLayoutSteps } from '@/store/scenariosSlice';
 import { setSelectedStep } from '@/store/uiSlice';
+import type { Step } from '@/types';
 import {
   PlayArrow as PlayArrowIcon,
   ViewStream as VerticalIcon,
@@ -35,6 +37,9 @@ export function ExecutionPage() {
   const stepResults = useStepResults();
   const [rightPanelTab, setRightPanelTab] = useState<'params' | 'detail' | 'result' | 'logs' | 'progress'>('params');
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
+
+  // Navigation state for nested graph
+  const [navigationPath, setNavigationPath] = useState<NavigationLevel[]>([]);
 
   // Show manual step dialog when execution is paused and current step is waiting
   useEffect(() => {
@@ -74,6 +79,111 @@ export function ExecutionPage() {
     [dispatch, currentScenario]
   );
 
+  /**
+   * Get the current container ID based on navigation path
+   */
+  const currentContainerId = navigationPath.length > 0
+    ? navigationPath[navigationPath.length - 1].stepId
+    : null;
+
+  /**
+   * Collect all step IDs that are inside containers
+   */
+  const collectStepIdsInContainers = useCallback((steps: Step[]): Set<string> => {
+    const stepsInsideContainers = new Set<string>();
+
+    const collectFromContainer = (stepIds: string[]) => {
+      stepIds.forEach(id => {
+        if (stepsInsideContainers.has(id)) return;
+        const childStep = steps.find(s => s.id === id);
+        if (!childStep) return;
+
+        stepsInsideContainers.add(id);
+
+        if (childStep.type === 'loop' || childStep.type === 'group') {
+          if (childStep.stepIds && childStep.stepIds.length > 0) {
+            collectFromContainer(childStep.stepIds);
+          }
+        }
+      });
+    };
+
+    steps.forEach(step => {
+      if ((step.type === 'loop' || step.type === 'group') && step.stepIds && step.stepIds.length > 0) {
+        collectFromContainer(step.stepIds);
+      }
+    });
+
+    return stepsInsideContainers;
+  }, []);
+
+  /**
+   * Get filtered steps for the current navigation level
+   */
+  const filteredSteps = useMemo(() => {
+    if (!currentScenario) return [];
+
+    const steps = currentScenario.steps;
+
+    if (!currentContainerId) {
+      // Root level: show steps not inside any container
+      const stepsInContainers = collectStepIdsInContainers(steps);
+      return steps.filter(s => !stepsInContainers.has(s.id));
+    } else {
+      // Inside a container: show only steps in that container
+      const container = steps.find(s => s.id === currentContainerId);
+      if (container && (container.type === 'loop' || container.type === 'group')) {
+        return container.stepIds
+          .map(id => steps.find(s => s.id === id))
+          .filter((s): s is Step => s !== undefined);
+      }
+      return [];
+    }
+  }, [currentScenario, currentContainerId, collectStepIdsInContainers]);
+
+  /**
+   * Get filtered edges for the current navigation level
+   */
+  const filteredEdges = useMemo(() => {
+    if (!currentScenario) return [];
+
+    const currentStepIds = new Set(filteredSteps.map(s => s.id));
+    return currentScenario.edges.filter(
+      edge => currentStepIds.has(edge.sourceStepId) && currentStepIds.has(edge.targetStepId)
+    );
+  }, [currentScenario, filteredSteps]);
+
+  /**
+   * Handle navigation to a specific level
+   */
+  const handleNavigate = useCallback((index: number) => {
+    if (index === -1) {
+      setNavigationPath([]);
+    } else {
+      setNavigationPath(prev => prev.slice(0, index + 1));
+    }
+  }, []);
+
+  /**
+   * Handle node double click - navigate into container
+   */
+  const handleNodeDoubleClick = useCallback((stepId: string, stepType: string) => {
+    if (stepType !== 'loop' && stepType !== 'group') {
+      return;
+    }
+
+    const step = currentScenario?.steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    setNavigationPath(prev => [
+      ...prev,
+      {
+        stepId: step.id,
+        name: step.name,
+      },
+    ]);
+  }, [currentScenario]);
+
   // Show empty state if no scenario
   if (!currentScenario) {
     return (
@@ -111,36 +221,52 @@ export function ExecutionPage() {
             height: '100%',
             borderRight: 1,
             borderColor: 'divider',
-            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          {/* Auto Layout Buttons */}
-          <Stack
-            direction="row"
-            spacing={0.5}
-            sx={{
-              position: 'absolute',
-              top: 10,
-              left: 10,
-              zIndex: 10,
-              bgcolor: 'background.paper',
-              borderRadius: 1,
-              boxShadow: 1,
-              p: 0.5,
-            }}
-          >
-            <Tooltip title="Auto-arrange (Top to Bottom)">
-              <IconButton size="small" onClick={() => handleAutoLayout('TB')}>
-                <VerticalIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Auto-arrange (Left to Right)">
-              <IconButton size="small" onClick={() => handleAutoLayout('LR')}>
-                <HorizontalIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-          <FlowCanvas scenario={currentScenario} stepResults={stepResults} readonly={true} />
+          {/* Breadcrumbs for nested navigation */}
+          <FlowBreadcrumbs
+            path={navigationPath}
+            onNavigate={handleNavigate}
+          />
+
+          <Box sx={{ position: 'relative', flexGrow: 1, overflow: 'hidden' }}>
+            {/* Auto Layout Buttons */}
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{
+                position: 'absolute',
+                top: 10,
+                left: 10,
+                zIndex: 10,
+                bgcolor: 'background.paper',
+                borderRadius: 1,
+                boxShadow: 1,
+                p: 0.5,
+              }}
+            >
+              <Tooltip title="Auto-arrange (Top to Bottom)">
+                <IconButton size="small" onClick={() => handleAutoLayout('TB')}>
+                  <VerticalIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Auto-arrange (Left to Right)">
+                <IconButton size="small" onClick={() => handleAutoLayout('LR')}>
+                  <HorizontalIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+            <FlowCanvas
+              scenario={currentScenario}
+              stepResults={stepResults}
+              readonly={true}
+              onNodeDoubleClick={handleNodeDoubleClick}
+              filteredSteps={filteredSteps}
+              filteredEdges={filteredEdges}
+            />
+          </Box>
         </Box>
 
         {/* Right: Tabs Panel */}

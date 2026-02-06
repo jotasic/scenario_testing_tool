@@ -35,6 +35,7 @@ interface FlowCanvasProps {
   stepResults?: Record<string, StepExecutionResult>;
   selectedStepId?: string | null;
   onNodeClick?: (stepId: string) => void;
+  onNodeDoubleClick?: (stepId: string, stepType: string) => void;
   onNodesChange?: (changes: NodeChange[]) => void;
   onEdgesChange?: (changes: EdgeChange[]) => void;
   onConnect?: (connection: Connection) => void;
@@ -43,6 +44,10 @@ interface FlowCanvasProps {
   showGrid?: boolean;
   tfxMode?: boolean;
   onTFXModeChange?: (enabled: boolean) => void;
+  /** Steps to display (filtered by navigation level) */
+  filteredSteps?: Step[];
+  /** Edges to display (filtered by navigation level) */
+  filteredEdges?: { id: string; sourceStepId: string; targetStepId: string; sourceHandle?: string; label?: string; animated?: boolean }[];
 }
 
 /**
@@ -92,48 +97,60 @@ function collectStepIdsInContainers(steps: Step[]): Set<string> {
 /**
  * Convert scenario steps to ReactFlow nodes
  * Filters out steps that are inside Loop/Group containers to prevent duplicate display
+ * If filteredSteps is provided, uses that list instead of filtering
  */
 function convertStepsToNodes(
   steps: Step[],
   stepResults?: Record<string, StepExecutionResult>,
   startStepId?: string,
-  readonly: boolean = false
+  readonly: boolean = false,
+  filteredSteps?: Step[]
 ): Node[] {
-  // Get all step IDs that are inside Loop or Group containers (recursively)
-  const stepsInsideContainers = collectStepIdsInContainers(steps);
+  // Use provided filtered steps or auto-filter
+  const stepsToDisplay = filteredSteps || (() => {
+    // Get all step IDs that are inside Loop or Group containers (recursively)
+    const stepsInsideContainers = collectStepIdsInContainers(steps);
+    // Only create nodes for steps that are NOT inside containers
+    return steps.filter(step => !stepsInsideContainers.has(step.id));
+  })();
 
-  // Only create nodes for steps that are NOT inside containers
-  return steps
-    .filter(step => !stepsInsideContainers.has(step.id))
-    .map(step => {
-      const result = stepResults?.[step.id];
+  return stepsToDisplay.map(step => {
+    const result = stepResults?.[step.id];
 
-      return {
-        id: step.id,
-        type: step.type,
-        position: step.position,
-        // Allow deletion via keyboard or UI buttons
-        deletable: !readonly,
-        selectable: true,
-        draggable: !readonly,
-        data: {
-          step,
-          status: result?.status,
-          currentIteration: result?.currentIteration,
-          totalIterations: result?.iterations,
-          isStartStep: step.id === startStepId,
-          // Pass all steps for Group and Loop nodes to resolve child steps
-          allSteps: (step.type === 'group' || step.type === 'loop') ? steps : undefined,
-        },
-      };
-    });
+    return {
+      id: step.id,
+      type: step.type,
+      position: step.position,
+      // Allow deletion via keyboard or UI buttons
+      deletable: !readonly,
+      selectable: true,
+      draggable: !readonly,
+      data: {
+        step,
+        status: result?.status,
+        currentIteration: result?.currentIteration,
+        totalIterations: result?.iterations,
+        isStartStep: step.id === startStepId,
+        // Pass all steps for Group and Loop nodes to resolve child steps
+        allSteps: (step.type === 'group' || step.type === 'loop') ? steps : undefined,
+      },
+    };
+  });
 }
 
 /**
  * Convert scenario edges to ReactFlow edges
+ * If filteredEdges is provided, uses that list instead
  */
-function convertScenarioEdges(scenario: Scenario, readonly: boolean = false, tfxMode: boolean = false): Edge[] {
-  return scenario.edges.map(edge => ({
+function convertScenarioEdges(
+  scenario: Scenario,
+  readonly: boolean = false,
+  tfxMode: boolean = false,
+  filteredEdges?: { id: string; sourceStepId: string; targetStepId: string; sourceHandle?: string; label?: string; animated?: boolean }[]
+): Edge[] {
+  const edgesToDisplay = filteredEdges || scenario.edges;
+
+  return edgesToDisplay.map(edge => ({
     id: edge.id,
     source: edge.sourceStepId,
     target: edge.targetStepId,
@@ -164,6 +181,7 @@ function FlowCanvasInner({
   stepResults,
   selectedStepId,
   onNodeClick,
+  onNodeDoubleClick,
   onNodesChange: externalNodesChange,
   onEdgesChange: externalEdgesChange,
   onConnect: externalConnect,
@@ -172,6 +190,8 @@ function FlowCanvasInner({
   showGrid = true,
   tfxMode: externalTFXMode,
   onTFXModeChange,
+  filteredSteps,
+  filteredEdges,
 }: FlowCanvasProps) {
   const { fitView } = useReactFlow();
 
@@ -189,13 +209,13 @@ function FlowCanvasInner({
 
   // Convert scenario data to React Flow format
   const initialNodes = useMemo(
-    () => convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly),
-    [scenario.steps, stepResults, scenario.startStepId, readonly]
+    () => convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps),
+    [scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps]
   );
 
   const initialEdges = useMemo(
-    () => convertScenarioEdges(scenario, readonly, tfxMode),
-    [scenario, readonly, tfxMode]
+    () => convertScenarioEdges(scenario, readonly, tfxMode, filteredEdges),
+    [scenario, readonly, tfxMode, filteredEdges]
   );
 
   // Local state for nodes and edges
@@ -205,13 +225,13 @@ function FlowCanvasInner({
   // Update nodes when steps or results change
   // Using useEffect instead of useMemo for side effects
   useEffect(() => {
-    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly));
-  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly]);
+    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps));
+  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps]);
 
   // Update edges when scenario edges change
   useEffect(() => {
-    setEdges(convertScenarioEdges(scenario, readonly, tfxMode));
-  }, [scenario, setEdges, readonly, tfxMode]);
+    setEdges(convertScenarioEdges(scenario, readonly, tfxMode, filteredEdges));
+  }, [scenario, setEdges, readonly, tfxMode, filteredEdges]);
 
   // Handle node changes (position, selection, etc.)
   const handleNodesChange = useCallback(
@@ -253,6 +273,16 @@ function FlowCanvasInner({
       }
     },
     [onNodeClick]
+  );
+
+  // Handle node double click (for container navigation)
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (onNodeDoubleClick && node.type) {
+        onNodeDoubleClick(node.id, node.type);
+      }
+    },
+    [onNodeDoubleClick]
   );
 
   // Update node selection state
@@ -395,6 +425,7 @@ function FlowCanvasInner({
         onEdgesChange={readonly ? undefined : handleEdgesChange}
         onConnect={readonly ? undefined : handleConnect}
         onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
         onInit={handleInit}
         nodeTypes={tfxMode ? tfxNodeTypes : nodeTypes}
         edgeTypes={edgeTypes}
