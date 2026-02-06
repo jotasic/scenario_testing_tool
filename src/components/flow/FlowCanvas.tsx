@@ -4,7 +4,7 @@
  * Handles node selection and flow interactions
  */
 
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -21,9 +21,14 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Box } from '@mui/material';
+import { Box, Button, ButtonGroup, Tooltip } from '@mui/material';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import ViewStreamIcon from '@mui/icons-material/ViewStream';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import type { Scenario, Step, StepExecutionResult } from '@/types';
-import { nodeTypes } from './nodes';
+import { nodeTypes, tfxNodeTypes } from './nodes';
+import { getLayoutedElements } from '@/utils/layoutUtils';
+import TFXEdge from './edges/TFXEdge';
 
 interface FlowCanvasProps {
   scenario: Scenario;
@@ -36,6 +41,8 @@ interface FlowCanvasProps {
   readonly?: boolean;
   showMinimap?: boolean;
   showGrid?: boolean;
+  tfxMode?: boolean;
+  onTFXModeChange?: (enabled: boolean) => void;
 }
 
 /**
@@ -125,17 +132,22 @@ function convertStepsToNodes(
 /**
  * Convert scenario edges to ReactFlow edges
  */
-function convertScenarioEdges(scenario: Scenario, readonly: boolean = false): Edge[] {
+function convertScenarioEdges(scenario: Scenario, readonly: boolean = false, tfxMode: boolean = false): Edge[] {
   return scenario.edges.map(edge => ({
     id: edge.id,
     source: edge.sourceStepId,
     target: edge.targetStepId,
     sourceHandle: edge.sourceHandle,
     label: edge.label,
+    labelShowBg: tfxMode ? true : undefined,
+    labelBgPadding: tfxMode ? [4, 2] : undefined,
+    labelBgBorderRadius: tfxMode ? 3 : undefined,
+    labelStyle: tfxMode ? { fontSize: 10, fontWeight: 600 } : undefined,
     animated: edge.animated ?? false,
     selectable: !readonly,
     deletable: !readonly,
     focusable: !readonly,
+    type: tfxMode ? 'tfx' : 'default',
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 20,
@@ -158,8 +170,22 @@ function FlowCanvasInner({
   readonly = false,
   showMinimap = true,
   showGrid = true,
+  tfxMode: externalTFXMode,
+  onTFXModeChange,
 }: FlowCanvasProps) {
   const { fitView } = useReactFlow();
+
+  // Internal TFX mode state if not controlled externally
+  const [internalTFXMode, setInternalTFXMode] = useState(false);
+  const tfxMode = externalTFXMode ?? internalTFXMode;
+
+  // Edge types for TFX mode
+  const edgeTypes = useMemo(
+    () => ({
+      tfx: TFXEdge,
+    }),
+    []
+  );
 
   // Convert scenario data to React Flow format
   const initialNodes = useMemo(
@@ -168,8 +194,8 @@ function FlowCanvasInner({
   );
 
   const initialEdges = useMemo(
-    () => convertScenarioEdges(scenario, readonly),
-    [scenario, readonly]
+    () => convertScenarioEdges(scenario, readonly, tfxMode),
+    [scenario, readonly, tfxMode]
   );
 
   // Local state for nodes and edges
@@ -184,8 +210,8 @@ function FlowCanvasInner({
 
   // Update edges when scenario edges change
   useEffect(() => {
-    setEdges(convertScenarioEdges(scenario, readonly));
-  }, [scenario, setEdges, readonly]);
+    setEdges(convertScenarioEdges(scenario, readonly, tfxMode));
+  }, [scenario, setEdges, readonly, tfxMode]);
 
   // Handle node changes (position, selection, etc.)
   const handleNodesChange = useCallback(
@@ -252,12 +278,44 @@ function FlowCanvasInner({
     }, 50);
   }, [fitView]);
 
+  // Handle auto-layout
+  const handleAutoLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges,
+      {
+        direction: 'LR',
+        nodeWidth: tfxMode ? 180 : 250,
+        nodeHeight: tfxMode ? 80 : 120,
+        nodeSpacing: 50,
+        rankSpacing: 100,
+      }
+    );
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+
+    // Fit view after layout
+    setTimeout(() => {
+      fitView({ padding: 0.2, duration: 400 });
+    }, 50);
+  }, [nodes, edges, setNodes, setEdges, fitView, tfxMode]);
+
+  // Handle TFX mode toggle
+  const handleTFXModeToggle = useCallback((enabled: boolean) => {
+    if (onTFXModeChange) {
+      onTFXModeChange(enabled);
+    } else {
+      setInternalTFXMode(enabled);
+    }
+  }, [onTFXModeChange]);
+
   return (
     <Box
       sx={{
         width: '100%',
         height: '100%',
         backgroundColor: 'background.default',
+        position: 'relative',
         '& .react-flow__node': {
           cursor: readonly ? 'default' : 'pointer',
         },
@@ -283,6 +341,53 @@ function FlowCanvasInner({
         },
       }}
     >
+      {/* Control Panel */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          display: 'flex',
+          gap: 1,
+        }}
+      >
+        {/* View Mode Toggle */}
+        <ButtonGroup size="small" variant="outlined">
+          <Tooltip title="Classic View">
+            <Button
+              variant={!tfxMode ? 'contained' : 'outlined'}
+              onClick={() => handleTFXModeToggle(false)}
+              sx={{ minWidth: 40 }}
+            >
+              <ViewStreamIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+          <Tooltip title="TFX Pipeline View">
+            <Button
+              variant={tfxMode ? 'contained' : 'outlined'}
+              onClick={() => handleTFXModeToggle(true)}
+              sx={{ minWidth: 40 }}
+            >
+              <AccountTreeIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+        </ButtonGroup>
+
+        {/* Auto Layout Button */}
+        <Tooltip title="Auto Layout">
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleAutoLayout}
+            startIcon={<AutoFixHighIcon />}
+            sx={{ minWidth: 40 }}
+          >
+            Auto Layout
+          </Button>
+        </Tooltip>
+      </Box>
+
       <ReactFlow
         nodes={nodesWithSelection}
         edges={edges}
@@ -291,7 +396,8 @@ function FlowCanvasInner({
         onConnect={readonly ? undefined : handleConnect}
         onNodeClick={handleNodeClick}
         onInit={handleInit}
-        nodeTypes={nodeTypes}
+        nodeTypes={tfxMode ? tfxNodeTypes : nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{
           padding: 0.2,
