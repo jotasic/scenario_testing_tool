@@ -4,7 +4,7 @@
  * Handles node selection and flow interactions
  */
 
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -50,6 +50,40 @@ interface FlowCanvasProps {
   filteredEdges?: { id: string; sourceStepId: string; targetStepId: string; sourceHandle?: string; label?: string; animated?: boolean }[];
   /** Step ID that is currently cut (for visual feedback) */
   cutStepId?: string | null;
+}
+
+/**
+ * Check if a step can be dropped into a container
+ * - Cannot drop container into itself
+ * - Cannot drop container into its own children (recursive)
+ */
+function canDropIntoContainer(
+  draggedStepId: string,
+  targetContainerId: string,
+  allSteps: Step[]
+): boolean {
+  // Cannot drop into itself
+  if (draggedStepId === targetContainerId) {
+    return false;
+  }
+
+  // Check if target is a descendant of dragged step
+  const isDescendant = (containerId: string, potentialChild: string): boolean => {
+    const container = allSteps.find(s => s.id === containerId);
+    if (!container || (container.type !== 'loop' && container.type !== 'group')) {
+      return false;
+    }
+
+    const childIds = container.stepIds || [];
+    if (childIds.includes(potentialChild)) {
+      return true;
+    }
+
+    // Recursively check children
+    return childIds.some(childId => isDescendant(childId, potentialChild));
+  };
+
+  return !isDescendant(draggedStepId, targetContainerId);
 }
 
 /**
@@ -107,7 +141,10 @@ function convertStepsToNodes(
   startStepId?: string,
   readonly: boolean = false,
   filteredSteps?: Step[],
-  cutStepId?: string | null
+  cutStepId?: string | null,
+  draggingNodeId?: string | null,
+  dragOverContainerId?: string | null,
+  allSteps?: Step[]
 ): Node[] {
   // Use provided filtered steps or auto-filter
   const stepsToDisplay = filteredSteps || (() => {
@@ -119,6 +156,12 @@ function convertStepsToNodes(
 
   return stepsToDisplay.map(step => {
     const result = stepResults?.[step.id];
+
+    // Drag state
+    const isDragging = step.id === draggingNodeId;
+    const isDragTarget = step.id === dragOverContainerId;
+    const isContainer = step.type === 'loop' || step.type === 'group';
+    const isDropDisabled = draggingNodeId && isContainer && !canDropIntoContainer(draggingNodeId, step.id, allSteps || steps);
 
     return {
       id: step.id,
@@ -135,6 +178,10 @@ function convertStepsToNodes(
         totalIterations: result?.iterations,
         isStartStep: step.id === startStepId,
         isCut: step.id === cutStepId,
+        // Drag states
+        isDragging,
+        isDragTarget,
+        isDropDisabled,
         // Pass all steps for Group and Loop nodes to resolve child steps
         allSteps: (step.type === 'group' || step.type === 'loop') ? steps : undefined,
       },
@@ -200,6 +247,10 @@ function FlowCanvasInner({
 }: FlowCanvasProps) {
   const { fitView } = useReactFlow();
 
+  // Drag state management
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [dragOverContainerId, setDragOverContainerId] = useState<string | null>(null);
+
   // Edge types (TFX only)
   const edgeTypes = useMemo(
     () => ({
@@ -214,8 +265,18 @@ function FlowCanvasInner({
 
   // Update nodes when steps or results change
   useEffect(() => {
-    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps, cutStepId));
-  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps, cutStepId]);
+    setNodes(convertStepsToNodes(
+      scenario.steps,
+      stepResults,
+      scenario.startStepId,
+      readonly,
+      filteredSteps,
+      cutStepId,
+      draggingNodeId,
+      dragOverContainerId,
+      scenario.steps
+    ));
+  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps, cutStepId, draggingNodeId, dragOverContainerId]);
 
   // Update edges when scenario edges change
   useEffect(() => {
@@ -264,10 +325,70 @@ function FlowCanvasInner({
     [onNodeClick]
   );
 
+  // Handle node drag start
+  const handleNodeDragStart = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (readonly) return;
+      setDraggingNodeId(node.id);
+      setDragOverContainerId(null);
+    },
+    [readonly]
+  );
+
+  // Handle node drag - update drop target
+  const handleNodeDrag = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (!onDropOnContainer || readonly) return;
+
+      // Find container nodes (Loop/Group)
+      const containerNodes = nodes.filter(n =>
+        n.type === 'loop' || n.type === 'group'
+      );
+
+      // Check if the dragged node is over a container
+      const nodeWidth = 180; // TFX node width
+      const nodeHeight = 100; // Approximate TFX node height
+
+      let foundContainer: string | null = null;
+
+      for (const containerNode of containerNodes) {
+        // Can't drop on itself
+        if (containerNode.id === node.id) continue;
+
+        // Skip if drop is disabled (would create circular dependency)
+        if (!canDropIntoContainer(node.id, containerNode.id, scenario.steps)) {
+          continue;
+        }
+
+        // Check if node center is within container bounds
+        const nodeCenterX = node.position.x + nodeWidth / 2;
+        const nodeCenterY = node.position.y + nodeHeight / 2;
+
+        const isOverContainer =
+          nodeCenterX >= containerNode.position.x &&
+          nodeCenterX <= containerNode.position.x + nodeWidth &&
+          nodeCenterY >= containerNode.position.y &&
+          nodeCenterY <= containerNode.position.y + nodeHeight;
+
+        if (isOverContainer) {
+          foundContainer = containerNode.id;
+          break;
+        }
+      }
+
+      setDragOverContainerId(foundContainer);
+    },
+    [nodes, onDropOnContainer, readonly, scenario.steps]
+  );
+
   // Handle node drag stop - check if dropped on a container
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: Node) => {
-      if (!onDropOnContainer || readonly) return;
+      if (!onDropOnContainer || readonly) {
+        setDraggingNodeId(null);
+        setDragOverContainerId(null);
+        return;
+      }
 
       // Find container nodes (Loop/Group)
       const containerNodes = nodes.filter(n =>
@@ -281,6 +402,11 @@ function FlowCanvasInner({
       for (const containerNode of containerNodes) {
         // Can't drop on itself
         if (containerNode.id === node.id) continue;
+
+        // Skip if drop is disabled (would create circular dependency)
+        if (!canDropIntoContainer(node.id, containerNode.id, scenario.steps)) {
+          continue;
+        }
 
         // Check if node center is within container bounds
         const nodeCenterX = node.position.x + nodeWidth / 2;
@@ -297,8 +423,12 @@ function FlowCanvasInner({
           break;
         }
       }
+
+      // Clear drag state
+      setDraggingNodeId(null);
+      setDragOverContainerId(null);
     },
-    [nodes, onDropOnContainer, readonly]
+    [nodes, onDropOnContainer, readonly, scenario.steps]
   );
 
   // Handle node double click (for container navigation)
@@ -438,6 +568,8 @@ function FlowCanvasInner({
         onConnect={readonly ? undefined : handleConnect}
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeDragStart={readonly ? undefined : handleNodeDragStart}
+        onNodeDrag={readonly ? undefined : handleNodeDrag}
         onNodeDragStop={readonly ? undefined : handleNodeDragStop}
         onEdgeClick={handleEdgeClick}
         onInit={handleInit}

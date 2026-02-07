@@ -26,6 +26,10 @@ interface TFXNodeData {
   isStartStep?: boolean;
   isCut?: boolean;
   allSteps?: Step[];
+  // Drag states
+  isDragging?: boolean;
+  isDragTarget?: boolean;
+  isDropDisabled?: boolean;
 }
 
 // Type-specific colors (header background)
@@ -114,14 +118,51 @@ function getStepDetails(step: Step, currentIteration?: number, totalIterations?:
 }
 
 function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
-  const { step, status, currentIteration, totalIterations, isStartStep, isCut } = data;
+  const { step, status, currentIteration, totalIterations, isStartStep, isCut, isDragging, isDragTarget, isDropDisabled } = data;
 
   const typeColor = TYPE_COLORS[step.type] || '#666';
   const borderColor = status ? STATUS_COLORS[status] : '#E0E0E0';
   const details = getStepDetails(step, currentIteration, totalIterations);
 
+  // Container check
+  const isContainer = step.type === 'loop' || step.type === 'group';
+
   // Running animation
   const isRunning = status === 'running';
+
+  // Drag visualization styles
+  const dragStyles = isDragging ? {
+    opacity: 0.5,
+    cursor: 'grabbing',
+    transform: 'scale(0.95)',
+  } : {};
+
+  // Drop target styles (valid drop zone)
+  const dropTargetStyles = isDragTarget && !isDropDisabled ? {
+    borderColor: '#4CAF50',
+    borderWidth: '3px',
+    borderStyle: 'solid',
+    backgroundColor: 'rgba(76, 175, 80, 0.12)',
+    boxShadow: '0 0 0 4px rgba(76, 175, 80, 0.2), 0 0 20px rgba(76, 175, 80, 0.3)',
+    animation: 'drop-pulse 1s ease-in-out infinite',
+  } : {};
+
+  // Drop disabled styles (invalid drop zone)
+  const dropDisabledStyles = isDragTarget && isDropDisabled ? {
+    borderColor: '#F44336',
+    borderWidth: '3px',
+    borderStyle: 'solid',
+    backgroundColor: 'rgba(244, 67, 54, 0.08)',
+    boxShadow: '0 0 0 4px rgba(244, 67, 54, 0.2)',
+    opacity: 0.6,
+    cursor: 'not-allowed',
+  } : {};
+
+  // Container hover styles (when something is being dragged)
+  const containerDragHoverStyles = isContainer && isDragging === false && data.isDragging !== undefined ? {
+    // Show that this is a potential drop zone
+    transition: 'all 0.2s ease',
+  } : {};
 
   // Cut visualization styles
   const cutStyles = isCut ? {
@@ -143,6 +184,9 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
     animation: 'selected-pulse 1.5s ease-in-out infinite',
   } : {};
 
+  // Cursor styles
+  const cursorStyle = isDragging ? 'grabbing' : (isDragTarget && isDropDisabled) ? 'not-allowed' : 'grab';
+
   return (
     <Box
       sx={{
@@ -154,6 +198,7 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
         boxShadow: 1,
         transition: 'all 0.2s',
         overflow: 'hidden',
+        cursor: cursorStyle,
         animation: isRunning ? 'tfx-pulse 2s ease-in-out infinite' : 'none',
         '@keyframes tfx-pulse': {
           '0%, 100%': {
@@ -174,13 +219,31 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
             boxShadow: '0 0 0 5px rgba(25, 118, 210, 0.2), 0 4px 16px rgba(25, 118, 210, 0.5)',
           },
         },
+        // Drop target pulse animation
+        '@keyframes drop-pulse': {
+          '0%, 100%': {
+            boxShadow: '0 0 0 4px rgba(76, 175, 80, 0.2), 0 0 20px rgba(76, 175, 80, 0.3)',
+          },
+          '50%': {
+            boxShadow: '0 0 0 6px rgba(76, 175, 80, 0.15), 0 0 30px rgba(76, 175, 80, 0.4)',
+          },
+        },
         '&:hover': {
           boxShadow: 2,
         },
-        // Apply cut styles (takes precedence over selection)
+        // Apply styles in priority order (later styles override earlier ones)
+        // 1. Drag styles (when node is being dragged)
+        ...dragStyles,
+        // 2. Drop disabled styles (when drop is not allowed)
+        ...dropDisabledStyles,
+        // 3. Drop target styles (when node can be dropped here)
+        ...dropTargetStyles,
+        // 4. Container drag hover styles
+        ...containerDragHoverStyles,
+        // 5. Cut styles (takes precedence over selection)
         ...cutStyles,
-        // Apply selection styles (only if not cut)
-        ...(!isCut && selectionStyles),
+        // 6. Selection styles (only if not cut)
+        ...(!isCut && !isDragTarget && !isDragging && selectionStyles),
       }}
     >
       {/* Target Handle (Top) */}
