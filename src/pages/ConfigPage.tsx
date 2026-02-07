@@ -731,7 +731,7 @@ export function ConfigPage() {
   /**
    * Handle move to container action
    */
-  const handleMoveToContainer = useCallback((containerId: string) => {
+  const handleMoveToContainer = useCallback((containerId: string | null) => {
     if (!contextMenu || !currentScenario) return;
     const stepId = contextMenu.stepId;
     const step = steps.find(s => s.id === stepId);
@@ -759,7 +759,8 @@ export function ConfigPage() {
         targetContainerId: containerId,
         edgesToDelete: conflictResult.edgesToDelete,
       }));
-      console.log(`Step "${step.name}" moved to container`);
+      const destination = containerId ? `container "${steps.find(s => s.id === containerId)?.name}"` : 'root level';
+      console.log(`Step "${step.name}" moved to ${destination}`);
     };
 
     if (conflictResult.hasConflicts) {
@@ -782,9 +783,9 @@ export function ConfigPage() {
   }, [contextMenu, currentScenario, steps, dispatch, handleCloseContextMenu]);
 
   /**
-   * Handle drop on container (drag & drop)
+   * Handle drop on container (drag & drop) or root level (containerId = null)
    */
-  const handleDropOnContainer = useCallback((stepId: string, containerId: string) => {
+  const handleDropOnContainer = useCallback((stepId: string, containerId: string | null) => {
     if (!currentScenario) return;
     const step = steps.find(s => s.id === stepId);
     if (!step) return;
@@ -795,7 +796,7 @@ export function ConfigPage() {
       return (s as LoopStep | GroupStep).stepIds.includes(stepId);
     });
 
-    // Don't move if already in this container
+    // Don't move if already in this container/level
     if (currentParent?.id === containerId) return;
 
     // Detect edge conflicts
@@ -814,7 +815,8 @@ export function ConfigPage() {
         targetContainerId: containerId,
         edgesToDelete: conflictResult.edgesToDelete,
       }));
-      console.log(`Step "${step.name}" dropped into container`);
+      const destination = containerId ? `container "${steps.find(s => s.id === containerId)?.name}"` : 'root level';
+      console.log(`Step "${step.name}" moved to ${destination}`);
     };
 
     if (conflictResult.hasConflicts) {
@@ -1484,6 +1486,22 @@ export function ConfigPage() {
             <ChevronRightIcon fontSize="small" sx={{ ml: 'auto' }} />
           )}
         </MenuItem>
+
+        {/* Extract to Root Level - only show if step is in a container */}
+        {contextMenu && (() => {
+          const step = steps.find(s => s.id === contextMenu.stepId);
+          const isInContainer = step && steps.some(s => {
+            if (s.type !== 'loop' && s.type !== 'group') return false;
+            return (s as LoopStep | GroupStep).stepIds.includes(contextMenu.stepId);
+          });
+          return isInContainer && (
+            <MenuItem
+              onClick={() => handleMoveToContainer(null)}
+            >
+              Extract to Root Level
+            </MenuItem>
+          );
+        })()}
       </Menu>
 
       {/* Move to Container Submenu */}

@@ -23,7 +23,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { Box, Button, Tooltip } from '@mui/material';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import type { Scenario, Step, StepExecutionResult } from '@/types';
+import type { Scenario, Step, StepExecutionResult, LoopStep, GroupStep } from '@/types';
 import { tfxNodeTypes } from './nodes';
 import { getLayoutedElements } from '@/utils/layoutUtils';
 import TFXEdge from './edges/TFXEdge';
@@ -39,8 +39,8 @@ interface FlowCanvasProps {
   onEdgesChange?: (changes: EdgeChange[]) => void;
   onConnect?: (connection: Connection) => void;
   onAutoLayout?: (positions: Record<string, { x: number; y: number }>) => void;
-  /** Called when a node is dropped onto a container (Loop/Group) */
-  onDropOnContainer?: (stepId: string, containerId: string) => void;
+  /** Called when a node is dropped onto a container (Loop/Group) or null for root level */
+  onDropOnContainer?: (stepId: string, containerId: string | null) => void;
   readonly?: boolean;
   showMinimap?: boolean;
   showGrid?: boolean;
@@ -406,7 +406,7 @@ function FlowCanvasInner({
     [nodes, onDropOnContainer, readonly, scenario.steps]
   );
 
-  // Handle node drag stop - check if dropped on a container
+  // Handle node drag stop - check if dropped on a container or root level
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       if (!onDropOnContainer || readonly) {
@@ -423,6 +423,8 @@ function FlowCanvasInner({
       // Check if the dragged node is dropped on a container
       const nodeWidth = 180; // TFX node width
       const nodeHeight = 100; // Approximate TFX node height
+
+      let droppedOnContainer = false;
 
       for (const containerNode of containerNodes) {
         // Can't drop on itself
@@ -445,7 +447,23 @@ function FlowCanvasInner({
 
         if (isOverContainer) {
           onDropOnContainer(node.id, containerNode.id);
+          droppedOnContainer = true;
           break;
+        }
+      }
+
+      // If not dropped on any container, check if it's being moved out of its current container
+      // This allows dropping on empty space to move to root level
+      if (!droppedOnContainer && dragOverContainerId === null) {
+        // Check if the node is currently in a container
+        const isInContainer = scenario.steps.some(step => {
+          if (step.type !== 'loop' && step.type !== 'group') return false;
+          return (step as LoopStep | GroupStep).stepIds.includes(node.id);
+        });
+
+        // If in a container and dragged away, move to root level (null)
+        if (isInContainer) {
+          onDropOnContainer(node.id, null);
         }
       }
 
@@ -453,7 +471,7 @@ function FlowCanvasInner({
       setDraggingNodeId(null);
       setDragOverContainerId(null);
     },
-    [nodes, onDropOnContainer, readonly, scenario.steps]
+    [nodes, onDropOnContainer, readonly, scenario.steps, dragOverContainerId]
   );
 
   // Handle node double click (for container navigation)
