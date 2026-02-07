@@ -7,7 +7,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import undoable from 'redux-undo';
 import type { Scenario, Step, ScenarioEdge, ParameterSchema } from '@/types';
-import sampleScenario from '@/data/sampleScenario';
+import sampleScenario, { twoStepScenario } from '@/data/sampleScenario';
 import { applyAutoLayout } from '@/utils/graphLayout';
 
 // Undo history limit - can be adjusted for performance
@@ -19,8 +19,8 @@ interface ScenariosState {
 }
 
 const initialState: ScenariosState = {
-  scenarios: [sampleScenario],
-  currentScenarioId: sampleScenario.id,
+  scenarios: [twoStepScenario, sampleScenario],
+  currentScenarioId: twoStepScenario.id,
 };
 
 const scenariosSlice = createSlice({

@@ -44,6 +44,11 @@ export const sampleServers: Server[] = [
 ];
 
 /**
+ * Export two-step test scenario
+ */
+export { default as twoStepScenario } from './twoStepScenario';
+
+/**
  * Sample scenario demonstrating all features
  */
 export const sampleScenario: Scenario = {
@@ -310,14 +315,14 @@ export const sampleScenario: Scenario = {
       id: 'edge_check_to_posts',
       sourceStepId: 'step_check_user',
       targetStepId: 'step_get_posts',
-      sourceHandle: 'long_name',
+      sourceHandle: 'branch_long_name',
       label: 'Long Name',
     },
     {
       id: 'edge_check_to_todos',
       sourceStepId: 'step_check_user',
       targetStepId: 'step_get_todos',
-      sourceHandle: 'short_name',
+      sourceHandle: 'branch_short_name',
       label: 'Short Name',
     },
     {

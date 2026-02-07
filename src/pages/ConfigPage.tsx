@@ -1252,8 +1252,8 @@ export function ConfigPage() {
   }, [dispatch]);
 
   // Determine if detail panel should be shown
-  // Show only when selectedStepId exists AND we're at the root level (no navigationPath)
-  const showDetailPanel = selectedStepId !== null && navigationPath.length === 0;
+  // Show when a step is selected (at any navigation level)
+  const showDetailPanel = selectedStepId !== null;
 
   // Get the selected step for detail panel
   const selectedStepForDetail = useMemo(() => {
