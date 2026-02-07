@@ -280,8 +280,6 @@ function FlowCanvasInner({
 
   // Update drag state in existing nodes without resetting positions
   useEffect(() => {
-    if (draggingNodeId === null && dragOverContainerId === null) return;
-
     setNodes((prevNodes) =>
       prevNodes.map((node) => {
         const step = scenario.steps.find((s) => s.id === node.id);
@@ -298,7 +296,7 @@ function FlowCanvasInner({
             ...node.data,
             isDragging,
             isDragTarget,
-            isDropDisabled,
+            isDropDisabled: !!isDropDisabled,
           },
         };
       })
