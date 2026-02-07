@@ -80,7 +80,7 @@ export function useLoadOnMount() {
  * Debounces saves to avoid excessive writes
  */
 export function useAutoSave(debounceMs: number = 1000) {
-  const scenarios = useAppSelector(state => state.scenarios.scenarios);
+  const scenarios = useAppSelector(state => state.scenarios.present.scenarios);
   const servers = useAppSelector(state => state.servers.servers);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -146,8 +146,8 @@ export function useAutoSave(debounceMs: number = 1000) {
  * Hook to manually save the current scenario
  */
 export function useManualSave() {
-  const currentScenarioId = useAppSelector(state => state.scenarios.currentScenarioId);
-  const scenarios = useAppSelector(state => state.scenarios.scenarios);
+  const currentScenarioId = useAppSelector(state => state.scenarios.present.currentScenarioId);
+  const scenarios = useAppSelector(state => state.scenarios.present.scenarios);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,8 +184,8 @@ export function useManualSave() {
  * Hook to export scenarios
  */
 export function useExport() {
-  const currentScenarioId = useAppSelector(state => state.scenarios.currentScenarioId);
-  const scenarios = useAppSelector(state => state.scenarios.scenarios);
+  const currentScenarioId = useAppSelector(state => state.scenarios.present.currentScenarioId);
+  const scenarios = useAppSelector(state => state.scenarios.present.scenarios);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -347,7 +347,7 @@ export function useImport() {
  * Hook to check if there are unsaved changes
  */
 export function useUnsavedChanges() {
-  const scenarios = useAppSelector(state => state.scenarios.scenarios);
+  const scenarios = useAppSelector(state => state.scenarios.present.scenarios);
   const servers = useAppSelector(state => state.servers.servers);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const savedStateRef = useRef<string>('');

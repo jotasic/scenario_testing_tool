@@ -5,9 +5,13 @@
 
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import undoable from 'redux-undo';
 import type { Scenario, Step, ScenarioEdge, ParameterSchema } from '@/types';
 import sampleScenario from '@/data/sampleScenario';
 import { applyAutoLayout } from '@/utils/graphLayout';
+
+// Undo history limit - can be adjusted for performance
+const UNDO_LIMIT = 50;
 
 interface ScenariosState {
   scenarios: Scenario[];
@@ -397,4 +401,31 @@ export const {
   clearScenarios,
 } = scenariosSlice.actions;
 
-export default scenariosSlice.reducer;
+// Wrap the reducer with undoable
+export default undoable(scenariosSlice.reducer, {
+  limit: UNDO_LIMIT,
+  filter: (action) => {
+    // Actions that should be undoable
+    const undoableActions = [
+      'scenarios/addScenario',
+      'scenarios/updateScenario',
+      'scenarios/deleteScenario',
+      'scenarios/duplicateScenario',
+      'scenarios/addStep',
+      'scenarios/updateStep',
+      'scenarios/deleteStep',
+      'scenarios/reorderSteps',
+      'scenarios/autoLayoutSteps',
+      'scenarios/addEdge',
+      'scenarios/updateEdge',
+      'scenarios/deleteEdge',
+      'scenarios/addStepToContainer',
+      'scenarios/removeStepFromContainer',
+      'scenarios/setParameterSchema',
+      'scenarios/addParameterSchema',
+      'scenarios/updateParameterSchema',
+      'scenarios/deleteParameterSchema',
+    ];
+    return undoableActions.includes(action.type);
+  },
+});

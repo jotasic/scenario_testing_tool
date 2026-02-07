@@ -34,9 +34,11 @@ interface FlowCanvasProps {
   selectedStepId?: string | null;
   onNodeClick?: (stepId: string) => void;
   onNodeDoubleClick?: (stepId: string, stepType: string) => void;
+  onEdgeClick?: () => void;
   onNodesChange?: (changes: NodeChange[]) => void;
   onEdgesChange?: (changes: EdgeChange[]) => void;
   onConnect?: (connection: Connection) => void;
+  onAutoLayout?: (positions: Record<string, { x: number; y: number }>) => void;
   readonly?: boolean;
   showMinimap?: boolean;
   showGrid?: boolean;
@@ -177,9 +179,11 @@ function FlowCanvasInner({
   selectedStepId,
   onNodeClick,
   onNodeDoubleClick,
+  onEdgeClick: externalEdgeClick,
   onNodesChange: externalNodesChange,
   onEdgesChange: externalEdgesChange,
   onConnect: externalConnect,
+  onAutoLayout: externalAutoLayout,
   readonly = false,
   showMinimap = true,
   showGrid = true,
@@ -274,6 +278,17 @@ function FlowCanvasInner({
     [onNodeDoubleClick]
   );
 
+  // Handle edge click - deselect all nodes to prevent accidental deletion
+  const handleEdgeClick = useCallback(
+    (_event: React.MouseEvent, _edge: Edge) => {
+      // Notify parent to clear selectedStepId
+      if (externalEdgeClick) {
+        externalEdgeClick();
+      }
+    },
+    [externalEdgeClick]
+  );
+
   // Update node selection state
   const nodesWithSelection = useMemo(
     () =>
@@ -313,11 +328,20 @@ function FlowCanvasInner({
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
 
+    // Extract positions and notify parent
+    if (externalAutoLayout) {
+      const positions: Record<string, { x: number; y: number }> = {};
+      layoutedNodes.forEach(node => {
+        positions[node.id] = node.position;
+      });
+      externalAutoLayout(positions);
+    }
+
     // Fit view after layout
     setTimeout(() => {
       fitView({ padding: 0.2, duration: 400 });
     }, 50);
-  }, [nodes, edges, setNodes, setEdges, fitView]);
+  }, [nodes, edges, setNodes, setEdges, fitView, externalAutoLayout]);
 
   return (
     <Box
@@ -381,6 +405,7 @@ function FlowCanvasInner({
         onConnect={readonly ? undefined : handleConnect}
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onEdgeClick={handleEdgeClick}
         onInit={handleInit}
         nodeTypes={tfxNodeTypes}
         edgeTypes={edgeTypes}

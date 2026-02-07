@@ -54,8 +54,8 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const currentScenario = useAppSelector(state => {
-    const currentId = state.scenarios.currentScenarioId;
-    return state.scenarios.scenarios.find(s => s.id === currentId);
+    const currentId = state.scenarios.present.currentScenarioId;
+    return state.scenarios.present.scenarios.find(s => s.id === currentId);
   });
 
   const { exportScenario, exportAll, isExporting, error: exportError } = useExport();

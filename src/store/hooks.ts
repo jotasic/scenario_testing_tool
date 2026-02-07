@@ -35,14 +35,14 @@ export const useServerById = (serverId: string | null | undefined): Server | nul
   );
 };
 
-// Scenarios selectors
+// Scenarios selectors (accessing .present due to redux-undo wrapper)
 export const useScenarios = () => {
-  return useAppSelector(state => state.scenarios.scenarios);
+  return useAppSelector(state => state.scenarios.present.scenarios);
 };
 
 export const useCurrentScenario = (): Scenario | null => {
-  const scenarios = useAppSelector(state => state.scenarios.scenarios);
-  const currentScenarioId = useAppSelector(state => state.scenarios.currentScenarioId);
+  const scenarios = useAppSelector(state => state.scenarios.present.scenarios);
+  const currentScenarioId = useAppSelector(state => state.scenarios.present.currentScenarioId);
   return useMemo(
     () => scenarios.find(s => s.id === currentScenarioId) || null,
     [scenarios, currentScenarioId]
@@ -50,7 +50,7 @@ export const useCurrentScenario = (): Scenario | null => {
 };
 
 export const useScenarioById = (scenarioId: string | null | undefined): Scenario | null => {
-  const scenarios = useAppSelector(state => state.scenarios.scenarios);
+  const scenarios = useAppSelector(state => state.scenarios.present.scenarios);
   return useMemo(
     () => (scenarioId ? scenarios.find(s => s.id === scenarioId) || null : null),
     [scenarios, scenarioId]

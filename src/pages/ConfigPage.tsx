@@ -3,7 +3,7 @@
  * Configuration mode page with 3-column resizable layout: Sidebar - Editor - Graph
  */
 
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -23,6 +23,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Menu,
 } from '@mui/material';
 import {
   Storage as StorageIcon,
@@ -33,7 +34,11 @@ import {
   ExpandLess as ExpandLessIcon,
   Add as AddIcon,
   Settings as ParametersIcon,
+  ChevronRight as ChevronRightIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon,
 } from '@mui/icons-material';
+import { ActionCreators } from 'redux-undo';
 import type { NodeChange, EdgeChange, Connection } from 'reactflow';
 import { ResizablePanels } from '@/components/layout/ResizablePanels';
 import { ResizableDetailPanel } from '@/components/layout/ResizableDetailPanel';
@@ -53,11 +58,12 @@ import {
   useSelectedStepId,
   useAppDispatch,
   useSelectedServer,
+  useAppSelector,
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { addServer, setSelectedServer } from '@/store/serversSlice';
 import { updateStep, addEdge, deleteEdge, addStep, deleteStep, autoLayoutSteps, setParameterSchema, updateScenario, addStepToContainer } from '@/store/scenariosSlice';
-import type { Server, Step, ParameterSchema } from '@/types';
+import type { Server, Step, LoopStep, GroupStep, ParameterSchema } from '@/types';
 
 export function ConfigPage() {
   const dispatch = useAppDispatch();
@@ -66,6 +72,10 @@ export function ConfigPage() {
   const steps = useCurrentSteps();
   const selectedStepId = useSelectedStepId();
   const selectedServer = useSelectedServer();
+
+  // Undo/Redo state
+  const canUndo = useAppSelector(state => state.scenarios.past.length > 0);
+  const canRedo = useAppSelector(state => state.scenarios.future.length > 0);
 
   // Dialog states
   const [addServerDialogOpen, setAddServerDialogOpen] = useState(false);
@@ -78,17 +88,42 @@ export function ConfigPage() {
     parameters: true,
   });
 
+  // Tree view expand states for step containers
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+
   // Editor panel mode
   const [editorMode, setEditorMode] = useState<'item' | 'parameters'>('item');
 
   // Navigation state for nested graph
   const [navigationPath, setNavigationPath] = useState<NavigationLevel[]>([]);
 
+  // Clipboard state for copy/paste functionality
+  const [clipboardStep, setClipboardStep] = useState<Step | null>(null);
+
+  // Context menu state for right-click menu
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    stepId: string;
+  } | null>(null);
+
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
       ...prev,
       [sectionId]: !prev[sectionId],
     }));
+  };
+
+  const toggleStepExpand = (stepId: string) => {
+    setExpandedSteps(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stepId)) {
+        newSet.delete(stepId);
+      } else {
+        newSet.add(stepId);
+      }
+      return newSet;
+    });
   };
 
   /**
@@ -200,12 +235,63 @@ export function ConfigPage() {
     ]);
   }, [steps]);
 
+  /**
+   * Find the path of parent containers for a given step
+   * Returns an array of container IDs from root to immediate parent
+   */
+  const findParentContainers = useCallback((stepId: string, allSteps: Step[]): string[] => {
+    const path: string[] = [];
+
+    const findPath = (targetId: string, currentPath: string[] = []): boolean => {
+      for (const step of allSteps) {
+        if (step.type === 'loop' || step.type === 'group') {
+          const containerStep = step as LoopStep | GroupStep;
+          if (containerStep.stepIds.includes(targetId)) {
+            const newPath = [...currentPath, step.id];
+
+            // Check if this container is inside another container
+            if (findPath(step.id, newPath)) {
+              return true;
+            }
+
+            // This is the outermost container
+            path.push(...newPath);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    findPath(stepId);
+    return path;
+  }, []);
+
   const handleItemClick = (sectionId: string, itemId: string) => {
     if (sectionId === 'servers') {
       dispatch(setSelectedServer(itemId));
       dispatch(setSelectedStep(null));
       setEditorMode('item');
     } else if (sectionId === 'steps') {
+      // Find if the step is inside any containers
+      const parentContainers = findParentContainers(itemId, steps);
+
+      if (parentContainers.length > 0) {
+        // Step is inside a container, navigate to it
+        const newPath: NavigationLevel[] = parentContainers.map(containerId => {
+          const container = steps.find(s => s.id === containerId);
+          return {
+            stepId: containerId,
+            name: container?.name || 'Unknown',
+          };
+        });
+        setNavigationPath(newPath);
+      } else {
+        // Step is at root level, clear navigation path
+        setNavigationPath([]);
+      }
+
+      // Select the step
       dispatch(setSelectedStep(itemId));
       dispatch(setSelectedServer(null));
       setEditorMode('item');
@@ -263,11 +349,43 @@ export function ConfigPage() {
     [dispatch, currentScenario, currentContainerId]
   );
 
+  // Undo/Redo handlers
+  const handleUndo = useCallback(() => {
+    dispatch(ActionCreators.undo());
+  }, [dispatch]);
+
+  const handleRedo = useCallback(() => {
+    dispatch(ActionCreators.redo());
+  }, [dispatch]);
+
+  // Handle edge click - clear step selection to prevent accidental deletion
+  const handleEdgeClick = useCallback(() => {
+    dispatch(setSelectedStep(null));
+  }, [dispatch]);
+
   const handleAutoLayout = useCallback(
     (direction: 'TB' | 'LR') => {
       if (currentScenario) {
         dispatch(autoLayoutSteps({ scenarioId: currentScenario.id, direction }));
       }
+    },
+    [dispatch, currentScenario]
+  );
+
+  const handleFlowAutoLayout = useCallback(
+    (positions: Record<string, { x: number; y: number }>) => {
+      if (!currentScenario) return;
+
+      // Update each step's position in Redux
+      Object.entries(positions).forEach(([stepId, position]) => {
+        dispatch(
+          updateStep({
+            scenarioId: currentScenario.id,
+            stepId,
+            changes: { position },
+          })
+        );
+      });
     },
     [dispatch, currentScenario]
   );
@@ -279,6 +397,160 @@ export function ConfigPage() {
     },
     [dispatch, currentScenario]
   );
+
+  /**
+   * Copy the currently selected step to clipboard
+   */
+  const handleCopyStep = useCallback(() => {
+    if (!selectedStepId) return;
+    const step = steps.find(s => s.id === selectedStepId);
+    if (step) {
+      setClipboardStep(step);
+      // Optional: Show a toast notification
+      console.log(`Step "${step.name}" copied to clipboard`);
+    }
+  }, [selectedStepId, steps]);
+
+  /**
+   * Paste the step from clipboard
+   * Creates a new step with a new ID, "(Copy)" suffix, and offset position
+   */
+  const handlePasteStep = useCallback(() => {
+    if (!clipboardStep || !currentScenario) return;
+
+    // Create a deep copy of the step with modifications
+    const newStep: Step = {
+      ...clipboardStep,
+      id: `step_${Date.now()}`,
+      name: `${clipboardStep.name} (Copy)`,
+      position: {
+        x: clipboardStep.position.x + 50,
+        y: clipboardStep.position.y + 50,
+      },
+    };
+
+    // For Loop/Group steps, initialize stepIds to empty array (don't copy children)
+    if (newStep.type === 'loop' || newStep.type === 'group') {
+      (newStep as LoopStep | GroupStep).stepIds = [];
+    }
+
+    // For RequestStep with branches, clear nextStepId references
+    if (newStep.type === 'request' && 'branches' in newStep && newStep.branches) {
+      newStep.branches = newStep.branches.map(branch => ({
+        ...branch,
+        nextStepId: '',
+      }));
+    }
+
+    // For ConditionStep, clear nextStepId references
+    if (newStep.type === 'condition' && newStep.branches) {
+      newStep.branches = newStep.branches.map(branch => ({
+        ...branch,
+        nextStepId: '',
+      }));
+    }
+
+    // Add the step to the scenario
+    dispatch(addStep({ scenarioId: currentScenario.id, step: newStep }));
+
+    // If inside a container, add the step to that container
+    if (currentContainerId) {
+      dispatch(addStepToContainer({
+        scenarioId: currentScenario.id,
+        containerId: currentContainerId,
+        stepId: newStep.id,
+      }));
+    }
+
+    // Select the newly created step
+    dispatch(setSelectedStep(newStep.id));
+
+    console.log(`Step "${newStep.name}" pasted`);
+  }, [clipboardStep, currentScenario, currentContainerId, dispatch]);
+
+  /**
+   * Keyboard shortcut handler for copy/paste
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if the target is an input element
+      const target = e.target as HTMLElement;
+      const isInputField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // Don't trigger shortcuts if typing in an input field
+      if (isInputField) return;
+
+      // Undo: Ctrl+Z or Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+
+      // Redo: Ctrl+Shift+Z or Cmd+Shift+Z
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        handleRedo();
+      }
+
+      // Copy: Ctrl+C or Cmd+C
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        handleCopyStep();
+      }
+
+      // Paste: Ctrl+V or Cmd+V
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        handlePasteStep();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo, handleCopyStep, handlePasteStep]);
+
+  /**
+   * Handle right-click on step tree item
+   */
+  const handleStepContextMenu = useCallback((event: React.MouseEvent, stepId: string) => {
+    event.preventDefault();
+    setContextMenu({
+      mouseX: event.clientX,
+      mouseY: event.clientY,
+      stepId,
+    });
+  }, []);
+
+  /**
+   * Close context menu
+   */
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  /**
+   * Handle context menu copy action
+   */
+  const handleContextMenuCopy = useCallback(() => {
+    if (contextMenu) {
+      const step = steps.find(s => s.id === contextMenu.stepId);
+      if (step) {
+        setClipboardStep(step);
+        // Select the step as well
+        dispatch(setSelectedStep(step.id));
+        console.log(`Step "${step.name}" copied to clipboard`);
+      }
+    }
+    handleCloseContextMenu();
+  }, [contextMenu, steps, dispatch, handleCloseContextMenu]);
+
+  /**
+   * Handle context menu paste action
+   */
+  const handleContextMenuPaste = useCallback(() => {
+    handleCloseContextMenu();
+    handlePasteStep();
+  }, [handleCloseContextMenu, handlePasteStep]);
 
   const handleNodeClick = useCallback(
     (stepId: string) => {
@@ -365,6 +637,106 @@ export function ConfigPage() {
   const getSelectedItemId = () => {
     return selectedServer?.id || selectedStepId || null;
   };
+
+  /**
+   * Get root level steps (steps that are not inside any container)
+   */
+  const rootSteps = useMemo(() => {
+    const stepsInContainers = collectStepIdsInContainers(steps);
+    return steps.filter(s => !stepsInContainers.has(s.id));
+  }, [steps, collectStepIdsInContainers]);
+
+  /**
+   * Recursive component to render step tree
+   */
+  interface StepTreeItemProps {
+    step: Step;
+    allSteps: Step[];
+    depth: number;
+    selectedId: string | null;
+    expandedIds: Set<string>;
+    onToggle: (id: string) => void;
+    onSelect: (id: string) => void;
+    onContextMenu: (event: React.MouseEvent, stepId: string) => void;
+  }
+
+  function StepTreeItem({ step, allSteps, depth, selectedId, expandedIds, onToggle, onSelect, onContextMenu }: StepTreeItemProps) {
+    const isContainer = step.type === 'loop' || step.type === 'group';
+    const isExpanded = expandedIds.has(step.id);
+    const childSteps = isContainer && 'stepIds' in step
+      ? step.stepIds
+          .map(id => allSteps.find(s => s.id === id))
+          .filter((s): s is Step => s !== undefined)
+      : [];
+
+    const hasChildren = childSteps.length > 0;
+
+    return (
+      <>
+        <ListItemButton
+          sx={{
+            pl: 2 + depth * 2,
+            '&:hover': {
+              bgcolor: 'action.hover',
+            },
+          }}
+          selected={selectedId === step.id}
+          onClick={() => onSelect(step.id)}
+          onContextMenu={(e) => onContextMenu(e, step.id)}
+        >
+          {isContainer && (
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(step.id);
+              }}
+              sx={{
+                mr: 0.5,
+                visibility: hasChildren ? 'visible' : 'hidden',
+              }}
+            >
+              {isExpanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+            </IconButton>
+          )}
+          {!isContainer && (
+            <Box sx={{ width: 28, mr: 0.5 }} />
+          )}
+          <ListItemText
+            primary={step.name}
+            primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+          />
+          <Chip
+            label={step.type}
+            size="small"
+            sx={{
+              ml: 1,
+              height: 20,
+              fontSize: '0.65rem',
+            }}
+          />
+        </ListItemButton>
+
+        {isContainer && hasChildren && (
+          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+            {childSteps.map(child => (
+              <StepTreeItem
+                key={child.id}
+                step={child}
+                allSteps={allSteps}
+                depth={depth + 1}
+                selectedId={selectedId}
+                expandedIds={expandedIds}
+                onToggle={onToggle}
+                onSelect={onSelect}
+                onContextMenu={onContextMenu}
+              />
+            ))}
+          </Collapse>
+        )}
+      </>
+    );
+  }
 
   // Sidebar Panel Content
   const SidebarPanel = (
@@ -470,19 +842,19 @@ export function ConfigPage() {
           </ListItem>
           <Collapse in={expandedSections.steps} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
-              {steps.length > 0 ? (
-                steps.map(step => (
-                  <ListItemButton
+              {rootSteps.length > 0 ? (
+                rootSteps.map(step => (
+                  <StepTreeItem
                     key={step.id}
-                    sx={{ pl: 4 }}
-                    selected={getSelectedItemId() === step.id}
-                    onClick={() => handleItemClick('steps', step.id)}
-                  >
-                    <ListItemText
-                      primary={step.name}
-                      primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                    />
-                  </ListItemButton>
+                    step={step}
+                    allSteps={steps}
+                    depth={0}
+                    selectedId={selectedStepId}
+                    expandedIds={expandedSteps}
+                    onToggle={toggleStepExpand}
+                    onSelect={(id) => handleItemClick('steps', id)}
+                    onContextMenu={handleStepContextMenu}
+                  />
                 ))
               ) : (
                 <ListItem sx={{ pl: 4 }}>
@@ -631,34 +1003,21 @@ export function ConfigPage() {
           )}
         </Box>
         {currentScenario && (
-          <Stack direction="row" spacing={1} sx={{ ml: 1, flexShrink: 0, alignItems: 'center' }}>
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel id="start-step-label">Start Step</InputLabel>
-              <Select
-                labelId="start-step-label"
-                value={currentScenario.startStepId || ''}
-                label="Start Step"
-                onChange={(e) => handleStartStepChange(e.target.value)}
-              >
-                {steps.map((step) => (
-                  <MenuItem key={step.id} value={step.id}>
-                    {step.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Divider orientation="vertical" flexItem />
-            <Tooltip title="Auto-arrange (Top to Bottom)">
-              <IconButton size="small" onClick={() => handleAutoLayout('TB')}>
-                <VerticalIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Auto-arrange (Left to Right)">
-              <IconButton size="small" onClick={() => handleAutoLayout('LR')}>
-                <HorizontalIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+          <FormControl size="small" sx={{ minWidth: 140, ml: 1 }}>
+            <InputLabel id="start-step-label">Start Step</InputLabel>
+            <Select
+              labelId="start-step-label"
+              value={currentScenario.startStepId || ''}
+              label="Start Step"
+              onChange={(e) => handleStartStepChange(e.target.value)}
+            >
+              {steps.map((step) => (
+                <MenuItem key={step.id} value={step.id}>
+                  {step.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         )}
       </Paper>
 
@@ -672,22 +1031,67 @@ export function ConfigPage() {
 
       <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex' }}>
         {/* Flow Canvas - takes full width when detail panel is hidden */}
-        <Box sx={{ flex: showDetailPanel ? '1 1 60%' : '1 1 100%', overflow: 'hidden' }}>
+        <Box sx={{ flex: showDetailPanel ? '1 1 60%' : '1 1 100%', overflow: 'hidden', position: 'relative' }}>
           {currentScenario ? (
-            <FlowCanvas
-              scenario={currentScenario}
-              selectedStepId={selectedStepId}
-              onNodeClick={handleNodeClick}
-              onNodeDoubleClick={handleNodeDoubleClick}
-              onNodesChange={handleNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onConnect={handleConnect}
-              readonly={false}
-              showMinimap={true}
-              showGrid={true}
-              filteredSteps={filteredSteps}
-              filteredEdges={filteredEdges}
-            />
+            <>
+              {/* Auto Layout Buttons */}
+              <Stack
+                direction="row"
+                spacing={0.5}
+                sx={{
+                  position: 'absolute',
+                  top: 10,
+                  left: 10,
+                  zIndex: 10,
+                  bgcolor: 'background.paper',
+                  borderRadius: 1,
+                  boxShadow: 1,
+                  p: 0.5,
+                }}
+              >
+                <Tooltip title="Undo (Ctrl+Z)">
+                  <span>
+                    <IconButton size="small" onClick={handleUndo} disabled={!canUndo}>
+                      <UndoIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Redo (Ctrl+Shift+Z)">
+                  <span>
+                    <IconButton size="small" onClick={handleRedo} disabled={!canRedo}>
+                      <RedoIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                <Tooltip title="Auto-arrange (Top to Bottom)">
+                  <IconButton size="small" onClick={() => handleAutoLayout('TB')}>
+                    <VerticalIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Auto-arrange (Left to Right)">
+                  <IconButton size="small" onClick={() => handleAutoLayout('LR')}>
+                    <HorizontalIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+              <FlowCanvas
+                scenario={currentScenario}
+                selectedStepId={selectedStepId}
+                onNodeClick={handleNodeClick}
+                onNodeDoubleClick={handleNodeDoubleClick}
+                onEdgeClick={handleEdgeClick}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={handleConnect}
+                onAutoLayout={handleFlowAutoLayout}
+                readonly={false}
+                showMinimap={true}
+                showGrid={true}
+                filteredSteps={filteredSteps}
+                filteredEdges={filteredEdges}
+              />
+            </>
           ) : (
             <EmptyState
               icon={ListAltIcon}
@@ -759,6 +1163,26 @@ export function ConfigPage() {
           onAdd={handleStepAdd}
         />
       )}
+
+      {/* Context Menu for Step Tree */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleCloseContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem onClick={handleContextMenuCopy}>Copy</MenuItem>
+        <MenuItem
+          onClick={handleContextMenuPaste}
+          disabled={clipboardStep === null}
+        >
+          Paste
+        </MenuItem>
+      </Menu>
     </Box>
   );
 }

@@ -25,12 +25,12 @@ interface FlowExampleProps {
 export default function FlowExample({ readonly = false }: FlowExampleProps) {
   const dispatch = useAppDispatch();
 
-  // Get current scenario from Redux
+  // Get current scenario from Redux (accessing .present due to redux-undo)
   const currentScenarioId = useAppSelector(
-    state => state.scenarios.currentScenarioId
+    state => state.scenarios.present.currentScenarioId
   );
   const scenario = useAppSelector(state =>
-    state.scenarios.scenarios.find(s => s.id === currentScenarioId)
+    state.scenarios.present.scenarios.find(s => s.id === currentScenarioId)
   );
 
   // Get execution context for status visualization
