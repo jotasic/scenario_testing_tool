@@ -145,11 +145,13 @@ export const useUIMode = () => {
 
 export const useSelectedStep = () => {
   const selectedStepId = useAppSelector(state => state.ui.selectedStepId);
-  return useStepById(selectedStepId);
+  const step = useStepById(selectedStepId);
+  return step;
 };
 
 export const useSelectedStepId = () => {
-  return useAppSelector(state => state.ui.selectedStepId);
+  const selectedStepId = useAppSelector(state => state.ui.selectedStepId);
+  return selectedStepId;
 };
 
 export const useExpandedPanels = () => {

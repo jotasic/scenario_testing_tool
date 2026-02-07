@@ -35,6 +35,7 @@ import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { Step, Scenario, StepExecutionResult, RequestStep, ConditionStep, LoopStep, GroupStep } from '@/types';
+import FlowCanvas from '@/components/flow/FlowCanvas';
 
 // Helper function to get step type emoji/icon
 function getStepTypeIcon(step: Step) {
@@ -461,6 +462,42 @@ function GroupTab({ step, scenario }: GroupTabProps) {
   );
 }
 
+interface SubGraphTabProps {
+  step: LoopStep | GroupStep;
+  scenario: Scenario;
+}
+
+function SubGraphTab({ step, scenario }: SubGraphTabProps) {
+  // Filter steps that are inside this Loop/Group
+  const filteredSteps = scenario.steps.filter(s => step.stepIds.includes(s.id));
+
+  // Filter edges that connect steps inside this Loop/Group
+  const filteredEdges = scenario.edges.filter(edge =>
+    step.stepIds.includes(edge.sourceStepId) && step.stepIds.includes(edge.targetStepId)
+  );
+
+  if (filteredSteps.length === 0) {
+    return (
+      <Alert severity="info">
+        No steps found inside this {step.type}.
+      </Alert>
+    );
+  }
+
+  return (
+    <Box sx={{ height: '400px', width: '100%' }}>
+      <FlowCanvas
+        scenario={scenario}
+        filteredSteps={filteredSteps}
+        filteredEdges={filteredEdges}
+        readonly={true}
+        showMinimap={false}
+        showGrid={true}
+      />
+    </Box>
+  );
+}
+
 interface LogsTabProps {
   result?: StepExecutionResult;
 }
@@ -541,8 +578,10 @@ export function StepDetailPanel({ step, stepResult, scenario, onClose }: StepDet
     tabs.push({ label: 'Branches', value: 0 });
   } else if (step.type === 'loop') {
     tabs.push({ label: 'Loop Config', value: 0 });
+    tabs.push({ label: 'Sub Graph', value: 1 });
   } else if (step.type === 'group') {
     tabs.push({ label: 'Group Info', value: 0 });
+    tabs.push({ label: 'Sub Graph', value: 1 });
   }
 
   tabs.push({ label: 'Logs', value: tabs.length });
@@ -674,6 +713,9 @@ export function StepDetailPanel({ step, stepResult, scenario, onClose }: StepDet
               <LoopTab step={step as LoopStep} result={stepResult} />
             </TabPanel>
             <TabPanel value={activeTab} index={1}>
+              <SubGraphTab step={step as LoopStep} scenario={scenario} />
+            </TabPanel>
+            <TabPanel value={activeTab} index={2}>
               <LogsTab result={stepResult} />
             </TabPanel>
           </>
@@ -685,6 +727,9 @@ export function StepDetailPanel({ step, stepResult, scenario, onClose }: StepDet
               <GroupTab step={step as GroupStep} scenario={scenario} />
             </TabPanel>
             <TabPanel value={activeTab} index={1}>
+              <SubGraphTab step={step as GroupStep} scenario={scenario} />
+            </TabPanel>
+            <TabPanel value={activeTab} index={2}>
               <LogsTab result={stepResult} />
             </TabPanel>
           </>

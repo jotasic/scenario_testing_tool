@@ -42,6 +42,7 @@ import { ServerEditor } from '@/components/servers/ServerEditor';
 import { AddServerDialog } from '@/components/servers/AddServerDialog';
 import { AddStepDialog } from '@/components/steps/AddStepDialog';
 import { ParameterSchemaEditor } from '@/components/parameters/ParameterSchemaEditor';
+import { StepDetailPanel } from '@/components/execution/StepDetailPanel';
 import FlowCanvas from '@/components/flow/FlowCanvas';
 import { FlowBreadcrumbs, type NavigationLevel } from '@/components/flow/FlowBreadcrumbs';
 import {
@@ -272,6 +273,7 @@ export function ConfigPage() {
     (stepId: string) => {
       dispatch(setSelectedStep(stepId));
       dispatch(setSelectedServer(null));
+      setEditorMode('item');
     },
     [dispatch]
   );
@@ -570,6 +572,21 @@ export function ConfigPage() {
     </Box>
   );
 
+  // Close StepDetailPanel
+  const handleCloseDetailPanel = useCallback(() => {
+    dispatch(setSelectedStep(null));
+  }, [dispatch]);
+
+  // Determine if detail panel should be shown
+  // Show only when selectedStepId exists AND we're at the root level (no navigationPath)
+  const showDetailPanel = selectedStepId !== null && navigationPath.length === 0;
+
+  // Get the selected step for detail panel
+  const selectedStepForDetail = useMemo(() => {
+    if (!showDetailPanel || !selectedStepId) return null;
+    return steps.find(s => s.id === selectedStepId) || null;
+  }, [showDetailPanel, selectedStepId, steps]);
+
   // Graph Panel Content
   const GraphPanel = (
     <Box
@@ -642,28 +659,51 @@ export function ConfigPage() {
         />
       )}
 
-      <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-        {currentScenario ? (
-          <FlowCanvas
-            scenario={currentScenario}
-            selectedStepId={selectedStepId}
-            onNodeClick={handleNodeClick}
-            onNodeDoubleClick={handleNodeDoubleClick}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={handleConnect}
-            readonly={false}
-            showMinimap={true}
-            showGrid={true}
-            filteredSteps={filteredSteps}
-            filteredEdges={filteredEdges}
-          />
-        ) : (
-          <EmptyState
-            icon={ListAltIcon}
-            title="No Scenario"
-            message="Create or load a scenario to see the flow graph."
-          />
+      <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex' }}>
+        {/* Flow Canvas - takes full width when detail panel is hidden */}
+        <Box sx={{ flex: showDetailPanel ? '1 1 60%' : '1 1 100%', overflow: 'hidden' }}>
+          {currentScenario ? (
+            <FlowCanvas
+              scenario={currentScenario}
+              selectedStepId={selectedStepId}
+              onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={handleConnect}
+              readonly={false}
+              showMinimap={true}
+              showGrid={true}
+              filteredSteps={filteredSteps}
+              filteredEdges={filteredEdges}
+            />
+          ) : (
+            <EmptyState
+              icon={ListAltIcon}
+              title="No Scenario"
+              message="Create or load a scenario to see the flow graph."
+            />
+          )}
+        </Box>
+
+        {/* Step Detail Panel - shown when a step is selected and at root level */}
+        {showDetailPanel && selectedStepForDetail && currentScenario && (
+          <Box
+            sx={{
+              flex: '0 0 40%',
+              minWidth: 320,
+              maxWidth: 600,
+              borderLeft: 1,
+              borderColor: 'divider',
+              overflow: 'hidden',
+            }}
+          >
+            <StepDetailPanel
+              step={selectedStepForDetail}
+              scenario={currentScenario}
+              onClose={handleCloseDetailPanel}
+            />
+          </Box>
         )}
       </Box>
     </Box>
