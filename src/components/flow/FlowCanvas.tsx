@@ -39,6 +39,8 @@ interface FlowCanvasProps {
   onEdgesChange?: (changes: EdgeChange[]) => void;
   onConnect?: (connection: Connection) => void;
   onAutoLayout?: (positions: Record<string, { x: number; y: number }>) => void;
+  /** Called when a node is dropped onto a container (Loop/Group) */
+  onDropOnContainer?: (stepId: string, containerId: string) => void;
   readonly?: boolean;
   showMinimap?: boolean;
   showGrid?: boolean;
@@ -188,6 +190,7 @@ function FlowCanvasInner({
   onEdgesChange: externalEdgesChange,
   onConnect: externalConnect,
   onAutoLayout: externalAutoLayout,
+  onDropOnContainer,
   readonly = false,
   showMinimap = true,
   showGrid = true,
@@ -259,6 +262,43 @@ function FlowCanvasInner({
       }
     },
     [onNodeClick]
+  );
+
+  // Handle node drag stop - check if dropped on a container
+  const handleNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (!onDropOnContainer || readonly) return;
+
+      // Find container nodes (Loop/Group)
+      const containerNodes = nodes.filter(n =>
+        n.type === 'loop' || n.type === 'group'
+      );
+
+      // Check if the dragged node is dropped on a container
+      const nodeWidth = 180; // TFX node width
+      const nodeHeight = 100; // Approximate TFX node height
+
+      for (const containerNode of containerNodes) {
+        // Can't drop on itself
+        if (containerNode.id === node.id) continue;
+
+        // Check if node center is within container bounds
+        const nodeCenterX = node.position.x + nodeWidth / 2;
+        const nodeCenterY = node.position.y + nodeHeight / 2;
+
+        const isOverContainer =
+          nodeCenterX >= containerNode.position.x &&
+          nodeCenterX <= containerNode.position.x + nodeWidth &&
+          nodeCenterY >= containerNode.position.y &&
+          nodeCenterY <= containerNode.position.y + nodeHeight;
+
+        if (isOverContainer) {
+          onDropOnContainer(node.id, containerNode.id);
+          break;
+        }
+      }
+    },
+    [nodes, onDropOnContainer, readonly]
   );
 
   // Handle node double click (for container navigation)
@@ -398,6 +438,7 @@ function FlowCanvasInner({
         onConnect={readonly ? undefined : handleConnect}
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeDragStop={readonly ? undefined : handleNodeDragStop}
         onEdgeClick={handleEdgeClick}
         onInit={handleInit}
         nodeTypes={tfxNodeTypes}

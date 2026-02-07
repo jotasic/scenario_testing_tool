@@ -67,7 +67,7 @@ import { addServer, setSelectedServer } from '@/store/serversSlice';
 import { updateStep, addEdge, deleteEdge, addStep, deleteStep, autoLayoutSteps, setParameterSchema, updateScenario, addStepToContainer, moveStepToContainer } from '@/store/scenariosSlice';
 import type { Server, Step, LoopStep, GroupStep, ParameterSchema } from '@/types';
 import { useClipboard } from '@/hooks';
-import { detectEdgeConflicts, type EdgeConflict } from '@/utils/edgeConflictUtils';
+import { detectEdgeConflicts, getAvailableContainers, type EdgeConflict } from '@/utils/edgeConflictUtils';
 
 export function ConfigPage() {
   const dispatch = useAppDispatch();
@@ -130,6 +130,9 @@ export function ConfigPage() {
     mouseY: number;
     stepId: string;
   } | null>(null);
+
+  // Move to Container submenu anchor
+  const [moveToContainerAnchor, setMoveToContainerAnchor] = useState<HTMLElement | null>(null);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
@@ -717,6 +720,118 @@ export function ConfigPage() {
     handlePasteStep();
   }, [handleCloseContextMenu, handlePasteStep]);
 
+  /**
+   * Get available containers for the context menu step
+   */
+  const availableContainers = useMemo(() => {
+    if (!contextMenu) return [];
+    return getAvailableContainers(contextMenu.stepId, steps);
+  }, [contextMenu, steps]);
+
+  /**
+   * Handle move to container action
+   */
+  const handleMoveToContainer = useCallback((containerId: string) => {
+    if (!contextMenu || !currentScenario) return;
+    const stepId = contextMenu.stepId;
+    const step = steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    // Find current parent container
+    const currentParent = steps.find(s => {
+      if (s.type !== 'loop' && s.type !== 'group') return false;
+      return (s as LoopStep | GroupStep).stepIds.includes(stepId);
+    });
+
+    // Detect edge conflicts
+    const conflictResult = detectEdgeConflicts(
+      [stepId],
+      containerId,
+      steps,
+      currentScenario.edges
+    );
+
+    const performMove = () => {
+      dispatch(moveStepToContainer({
+        scenarioId: currentScenario.id,
+        stepId,
+        sourceContainerId: currentParent?.id || null,
+        targetContainerId: containerId,
+        edgesToDelete: conflictResult.edgesToDelete,
+      }));
+      console.log(`Step "${step.name}" moved to container`);
+    };
+
+    if (conflictResult.hasConflicts) {
+      setEdgeConflictDialog({
+        open: true,
+        operation: 'move',
+        conflicts: conflictResult.conflicts,
+        onConfirm: () => {
+          performMove();
+          setEdgeConflictDialog(prev => ({ ...prev, open: false }));
+        },
+      });
+    } else {
+      performMove();
+    }
+
+    // Close menus
+    setMoveToContainerAnchor(null);
+    handleCloseContextMenu();
+  }, [contextMenu, currentScenario, steps, dispatch, handleCloseContextMenu]);
+
+  /**
+   * Handle drop on container (drag & drop)
+   */
+  const handleDropOnContainer = useCallback((stepId: string, containerId: string) => {
+    if (!currentScenario) return;
+    const step = steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    // Find current parent container
+    const currentParent = steps.find(s => {
+      if (s.type !== 'loop' && s.type !== 'group') return false;
+      return (s as LoopStep | GroupStep).stepIds.includes(stepId);
+    });
+
+    // Don't move if already in this container
+    if (currentParent?.id === containerId) return;
+
+    // Detect edge conflicts
+    const conflictResult = detectEdgeConflicts(
+      [stepId],
+      containerId,
+      steps,
+      currentScenario.edges
+    );
+
+    const performMove = () => {
+      dispatch(moveStepToContainer({
+        scenarioId: currentScenario.id,
+        stepId,
+        sourceContainerId: currentParent?.id || null,
+        targetContainerId: containerId,
+        edgesToDelete: conflictResult.edgesToDelete,
+      }));
+      console.log(`Step "${step.name}" dropped into container`);
+    };
+
+    if (conflictResult.hasConflicts) {
+      setEdgeConflictDialog({
+        open: true,
+        operation: 'move',
+        conflicts: conflictResult.conflicts,
+        onConfirm: () => {
+          performMove();
+          setEdgeConflictDialog(prev => ({ ...prev, open: false }));
+        },
+      });
+    } else {
+      performMove();
+    }
+  }, [currentScenario, steps, dispatch]);
+
   const handleNodeClick = useCallback(
     (stepId: string) => {
       dispatch(setSelectedStep(stepId));
@@ -1259,6 +1374,7 @@ export function ConfigPage() {
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
                 onAutoLayout={handleFlowAutoLayout}
+                onDropOnContainer={handleDropOnContainer}
                 readonly={false}
                 showMinimap={true}
                 showGrid={true}
@@ -1358,6 +1474,46 @@ export function ConfigPage() {
         >
           Paste (Ctrl+V)
         </MenuItem>
+        <Divider />
+        <MenuItem
+          disabled={availableContainers.length === 0}
+          onClick={(e) => setMoveToContainerAnchor(e.currentTarget)}
+        >
+          Move to Container
+          {availableContainers.length > 0 && (
+            <ChevronRightIcon fontSize="small" sx={{ ml: 'auto' }} />
+          )}
+        </MenuItem>
+      </Menu>
+
+      {/* Move to Container Submenu */}
+      <Menu
+        open={Boolean(moveToContainerAnchor)}
+        anchorEl={moveToContainerAnchor}
+        onClose={() => setMoveToContainerAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        {availableContainers.map(container => (
+          <MenuItem
+            key={container.id}
+            onClick={() => handleMoveToContainer(container.id)}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                label={container.type.toUpperCase()}
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: '0.6rem',
+                  bgcolor: container.type === 'loop' ? 'secondary.main' : 'info.main',
+                  color: 'white',
+                }}
+              />
+              <Typography variant="body2">{container.name}</Typography>
+            </Box>
+          </MenuItem>
+        ))}
       </Menu>
 
       {/* Edge Conflict Dialog */}

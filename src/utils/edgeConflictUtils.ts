@@ -187,6 +187,57 @@ export function detectEdgeConflicts(
 }
 
 /**
+ * Get available containers that a step can be moved to
+ *
+ * @param stepId - ID of the step to be moved
+ * @param allSteps - All steps in the scenario
+ * @returns Array of available container steps (Loop or Group)
+ */
+export function getAvailableContainers(
+  stepId: string,
+  allSteps: Step[]
+): Array<{ id: string; name: string; type: 'loop' | 'group' }> {
+  const stepParents = getParentContainers(stepId, allSteps);
+
+  // Helper: Check if containerId is a descendant of stepId (to prevent circular nesting)
+  const isDescendant = (containerId: string, targetId: string): boolean => {
+    const step = allSteps.find(s => s.id === targetId);
+    if (!step || (step.type !== 'loop' && step.type !== 'group')) {
+      return false;
+    }
+
+    const container = step as LoopStep | GroupStep;
+    for (const childId of container.stepIds) {
+      if (childId === containerId) return true;
+      if (isDescendant(containerId, childId)) return true;
+    }
+    return false;
+  };
+
+  return allSteps
+    .filter(step => {
+      // Must be a container type
+      if (step.type !== 'loop' && step.type !== 'group') return false;
+
+      // Cannot move to itself
+      if (step.id === stepId) return false;
+
+      // Cannot move to current parent (already there)
+      if (stepParents[0] === step.id) return false;
+
+      // Cannot move to a descendant (circular nesting)
+      if (isDescendant(step.id, stepId)) return false;
+
+      return true;
+    })
+    .map(step => ({
+      id: step.id,
+      name: step.name,
+      type: step.type as 'loop' | 'group',
+    }));
+}
+
+/**
  * Format edge conflict message for display
  */
 export function formatConflictMessage(
