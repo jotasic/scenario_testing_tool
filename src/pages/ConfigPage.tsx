@@ -24,6 +24,7 @@ import {
   Select,
   MenuItem,
   Menu,
+  alpha,
 } from '@mui/material';
 import {
   Storage as StorageIcon,
@@ -43,6 +44,7 @@ import type { NodeChange, EdgeChange, Connection } from 'reactflow';
 import { ResizablePanels } from '@/components/layout/ResizablePanels';
 import { ResizableDetailPanel } from '@/components/layout/ResizableDetailPanel';
 import { EmptyState } from '@/components/common/EmptyState';
+import { EdgeConflictDialog } from '@/components/common/EdgeConflictDialog';
 import { StepEditor } from '@/components/steps/StepEditor';
 import { ServerEditor } from '@/components/servers/ServerEditor';
 import { AddServerDialog } from '@/components/servers/AddServerDialog';
@@ -62,8 +64,10 @@ import {
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { addServer, setSelectedServer } from '@/store/serversSlice';
-import { updateStep, addEdge, deleteEdge, addStep, deleteStep, autoLayoutSteps, setParameterSchema, updateScenario, addStepToContainer } from '@/store/scenariosSlice';
+import { updateStep, addEdge, deleteEdge, addStep, deleteStep, autoLayoutSteps, setParameterSchema, updateScenario, addStepToContainer, moveStepToContainer } from '@/store/scenariosSlice';
 import type { Server, Step, LoopStep, GroupStep, ParameterSchema } from '@/types';
+import { useClipboard } from '@/hooks';
+import { detectEdgeConflicts, type EdgeConflict } from '@/utils/edgeConflictUtils';
 
 export function ConfigPage() {
   const dispatch = useAppDispatch();
@@ -97,8 +101,28 @@ export function ConfigPage() {
   // Navigation state for nested graph
   const [navigationPath, setNavigationPath] = useState<NavigationLevel[]>([]);
 
-  // Clipboard state for copy/paste functionality
-  const [clipboardStep, setClipboardStep] = useState<Step | null>(null);
+  // Clipboard management
+  const {
+    clipboardData,
+    hasClipboard,
+    cutStepId,
+    copyStep,
+    cutStep,
+    consumeClipboard,
+  } = useClipboard();
+
+  // Edge conflict dialog state
+  const [edgeConflictDialog, setEdgeConflictDialog] = useState<{
+    open: boolean;
+    operation: 'cut' | 'move';
+    conflicts: EdgeConflict[];
+    onConfirm: () => void;
+  }>({
+    open: false,
+    operation: 'cut',
+    conflicts: [],
+    onConfirm: () => {},
+  });
 
   // Context menu state for right-click menu
   const [contextMenu, setContextMenu] = useState<{
@@ -405,71 +429,160 @@ export function ConfigPage() {
     if (!selectedStepId) return;
     const step = steps.find(s => s.id === selectedStepId);
     if (step) {
-      setClipboardStep(step);
-      // Optional: Show a toast notification
+      copyStep(step, currentContainerId);
       console.log(`Step "${step.name}" copied to clipboard`);
     }
-  }, [selectedStepId, steps]);
+  }, [selectedStepId, steps, currentContainerId, copyStep]);
+
+  /**
+   * Cut the currently selected step to clipboard
+   */
+  const handleCutStep = useCallback(() => {
+    if (!selectedStepId || !currentScenario) return;
+    const step = steps.find(s => s.id === selectedStepId);
+    if (!step) return;
+
+    // Detect edge conflicts
+    const conflictResult = detectEdgeConflicts(
+      [selectedStepId],
+      null, // Cutting to clipboard (will be moved out of current container)
+      steps,
+      currentScenario.edges
+    );
+
+    if (conflictResult.hasConflicts) {
+      // Show conflict dialog
+      setEdgeConflictDialog({
+        open: true,
+        operation: 'cut',
+        conflicts: conflictResult.conflicts,
+        onConfirm: () => {
+          // User confirmed - proceed with cut
+          cutStep(step, currentContainerId);
+          // Delete conflicting edges
+          conflictResult.edgesToDelete.forEach(edgeId => {
+            dispatch(deleteEdge({ scenarioId: currentScenario.id, edgeId }));
+          });
+          setEdgeConflictDialog(prev => ({ ...prev, open: false }));
+          console.log(`Step "${step.name}" cut to clipboard`);
+        },
+      });
+    } else {
+      // No conflicts - proceed directly
+      cutStep(step, currentContainerId);
+      console.log(`Step "${step.name}" cut to clipboard`);
+    }
+  }, [selectedStepId, currentScenario, steps, currentContainerId, cutStep, dispatch]);
 
   /**
    * Paste the step from clipboard
-   * Creates a new step with a new ID, "(Copy)" suffix, and offset position
+   * For 'copy': Creates a new step with a new ID, "(Copy)" suffix, and offset position
+   * For 'cut': Moves the original step to the target container
    */
   const handlePasteStep = useCallback(() => {
-    if (!clipboardStep || !currentScenario) return;
+    if (!clipboardData || !currentScenario) return;
 
-    // Create a deep copy of the step with modifications
-    const newStep: Step = {
-      ...clipboardStep,
-      id: `step_${Date.now()}`,
-      name: `${clipboardStep.name} (Copy)`,
-      position: {
-        x: clipboardStep.position.x + 50,
-        y: clipboardStep.position.y + 50,
-      },
-    };
+    const data = consumeClipboard();
+    if (!data) return;
 
-    // For Loop/Group steps, initialize stepIds to empty array (don't copy children)
-    if (newStep.type === 'loop' || newStep.type === 'group') {
-      (newStep as LoopStep | GroupStep).stepIds = [];
+    if (data.operation === 'copy') {
+      // Copy operation - create a new step
+      const newStep: Step = {
+        ...data.step,
+        id: `step_${Date.now()}`,
+        name: `${data.step.name} (Copy)`,
+        position: {
+          x: data.step.position.x + 50,
+          y: data.step.position.y + 50,
+        },
+      };
+
+      // For Loop/Group steps, initialize stepIds to empty array (don't copy children)
+      if (newStep.type === 'loop' || newStep.type === 'group') {
+        (newStep as LoopStep | GroupStep).stepIds = [];
+      }
+
+      // For RequestStep with branches, clear nextStepId references
+      if (newStep.type === 'request' && 'branches' in newStep && newStep.branches) {
+        newStep.branches = newStep.branches.map(branch => ({
+          ...branch,
+          nextStepId: '',
+        }));
+      }
+
+      // For ConditionStep, clear nextStepId references
+      if (newStep.type === 'condition' && newStep.branches) {
+        newStep.branches = newStep.branches.map(branch => ({
+          ...branch,
+          nextStepId: '',
+        }));
+      }
+
+      // Add the step to the scenario
+      dispatch(addStep({ scenarioId: currentScenario.id, step: newStep }));
+
+      // If inside a container, add the step to that container
+      if (currentContainerId) {
+        dispatch(addStepToContainer({
+          scenarioId: currentScenario.id,
+          containerId: currentContainerId,
+          stepId: newStep.id,
+        }));
+      }
+
+      // Select the newly created step
+      dispatch(setSelectedStep(newStep.id));
+
+      console.log(`Step "${newStep.name}" pasted (copied)`);
+    } else {
+      // Cut operation - move the original step
+      const stepToMove = data.step;
+
+      // Check if we need to detect edge conflicts for the move
+      const conflictResult = detectEdgeConflicts(
+        [stepToMove.id],
+        currentContainerId,
+        steps,
+        currentScenario.edges
+      );
+
+      const performMove = () => {
+        // Use atomic move operation (single undo/redo step)
+        dispatch(moveStepToContainer({
+          scenarioId: currentScenario.id,
+          stepId: stepToMove.id,
+          sourceContainerId: data.sourceContainerId || null,
+          targetContainerId: currentContainerId || null,
+          edgesToDelete: conflictResult.edgesToDelete,
+        }));
+
+        // Select the moved step
+        dispatch(setSelectedStep(stepToMove.id));
+
+        console.log(`Step "${stepToMove.name}" pasted (moved)`);
+      };
+
+      if (conflictResult.hasConflicts) {
+        // Show conflict dialog
+        setEdgeConflictDialog({
+          open: true,
+          operation: 'move',
+          conflicts: conflictResult.conflicts,
+          onConfirm: () => {
+            performMove();
+            setEdgeConflictDialog(prev => ({ ...prev, open: false }));
+          },
+        });
+      } else {
+        // No conflicts - proceed directly
+        performMove();
+      }
     }
-
-    // For RequestStep with branches, clear nextStepId references
-    if (newStep.type === 'request' && 'branches' in newStep && newStep.branches) {
-      newStep.branches = newStep.branches.map(branch => ({
-        ...branch,
-        nextStepId: '',
-      }));
-    }
-
-    // For ConditionStep, clear nextStepId references
-    if (newStep.type === 'condition' && newStep.branches) {
-      newStep.branches = newStep.branches.map(branch => ({
-        ...branch,
-        nextStepId: '',
-      }));
-    }
-
-    // Add the step to the scenario
-    dispatch(addStep({ scenarioId: currentScenario.id, step: newStep }));
-
-    // If inside a container, add the step to that container
-    if (currentContainerId) {
-      dispatch(addStepToContainer({
-        scenarioId: currentScenario.id,
-        containerId: currentContainerId,
-        stepId: newStep.id,
-      }));
-    }
-
-    // Select the newly created step
-    dispatch(setSelectedStep(newStep.id));
-
-    console.log(`Step "${newStep.name}" pasted`);
-  }, [clipboardStep, currentScenario, currentContainerId, dispatch]);
+  }, [clipboardData, currentScenario, currentContainerId, consumeClipboard, steps, dispatch]);
 
   /**
-   * Keyboard shortcut handler for copy/paste
+   * Keyboard shortcut handler for copy/cut/paste
+   * Optimized to minimize re-registration by using dispatch directly
    */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -483,19 +596,25 @@ export function ConfigPage() {
       // Undo: Ctrl+Z or Cmd+Z
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        handleUndo();
+        dispatch(ActionCreators.undo());
       }
 
       // Redo: Ctrl+Shift+Z or Cmd+Shift+Z
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
         e.preventDefault();
-        handleRedo();
+        dispatch(ActionCreators.redo());
       }
 
       // Copy: Ctrl+C or Cmd+C
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault();
         handleCopyStep();
+      }
+
+      // Cut: Ctrl+X or Cmd+X
+      if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+        e.preventDefault();
+        handleCutStep();
       }
 
       // Paste: Ctrl+V or Cmd+V
@@ -507,7 +626,7 @@ export function ConfigPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, handleCopyStep, handlePasteStep]);
+  }, [dispatch, handleCopyStep, handleCutStep, handlePasteStep]);
 
   /**
    * Handle right-click on step tree item
@@ -535,14 +654,60 @@ export function ConfigPage() {
     if (contextMenu) {
       const step = steps.find(s => s.id === contextMenu.stepId);
       if (step) {
-        setClipboardStep(step);
+        copyStep(step, currentContainerId);
         // Select the step as well
         dispatch(setSelectedStep(step.id));
         console.log(`Step "${step.name}" copied to clipboard`);
       }
     }
     handleCloseContextMenu();
-  }, [contextMenu, steps, dispatch, handleCloseContextMenu]);
+  }, [contextMenu, steps, currentContainerId, copyStep, dispatch, handleCloseContextMenu]);
+
+  /**
+   * Handle context menu cut action
+   */
+  const handleContextMenuCut = useCallback(() => {
+    if (contextMenu && currentScenario) {
+      const step = steps.find(s => s.id === contextMenu.stepId);
+      if (step) {
+        // Detect edge conflicts
+        const conflictResult = detectEdgeConflicts(
+          [step.id],
+          null,
+          steps,
+          currentScenario.edges
+        );
+
+        const performCut = () => {
+          cutStep(step, currentContainerId);
+          // Delete conflicting edges
+          if (conflictResult.hasConflicts) {
+            conflictResult.edgesToDelete.forEach(edgeId => {
+              dispatch(deleteEdge({ scenarioId: currentScenario.id, edgeId }));
+            });
+          }
+          // Select the step as well
+          dispatch(setSelectedStep(step.id));
+          console.log(`Step "${step.name}" cut to clipboard`);
+        };
+
+        if (conflictResult.hasConflicts) {
+          setEdgeConflictDialog({
+            open: true,
+            operation: 'cut',
+            conflicts: conflictResult.conflicts,
+            onConfirm: () => {
+              performCut();
+              setEdgeConflictDialog(prev => ({ ...prev, open: false }));
+            },
+          });
+        } else {
+          performCut();
+        }
+      }
+    }
+    handleCloseContextMenu();
+  }, [contextMenu, currentScenario, steps, currentContainerId, cutStep, dispatch, handleCloseContextMenu]);
 
   /**
    * Handle context menu paste action
@@ -670,6 +835,7 @@ export function ConfigPage() {
       : [];
 
     const hasChildren = childSteps.length > 0;
+    const isCut = cutStepId === step.id;
 
     return (
       <>
@@ -679,6 +845,14 @@ export function ConfigPage() {
             '&:hover': {
               bgcolor: 'action.hover',
             },
+            // Cut visualization - dimmed and dashed border
+            ...(isCut && {
+              opacity: 0.5,
+              borderLeft: 3,
+              borderColor: 'warning.main',
+              borderStyle: 'dashed',
+              bgcolor: alpha('#FF9800', 0.08),
+            }),
           }}
           selected={selectedId === step.id}
           onClick={() => onSelect(step.id)}
@@ -1090,6 +1264,7 @@ export function ConfigPage() {
                 showGrid={true}
                 filteredSteps={filteredSteps}
                 filteredEdges={filteredEdges}
+                cutStepId={cutStepId}
               />
             </>
           ) : (
@@ -1175,14 +1350,24 @@ export function ConfigPage() {
             : undefined
         }
       >
-        <MenuItem onClick={handleContextMenuCopy}>Copy</MenuItem>
+        <MenuItem onClick={handleContextMenuCopy}>Copy (Ctrl+C)</MenuItem>
+        <MenuItem onClick={handleContextMenuCut}>Cut (Ctrl+X)</MenuItem>
         <MenuItem
           onClick={handleContextMenuPaste}
-          disabled={clipboardStep === null}
+          disabled={!hasClipboard}
         >
-          Paste
+          Paste (Ctrl+V)
         </MenuItem>
       </Menu>
+
+      {/* Edge Conflict Dialog */}
+      <EdgeConflictDialog
+        open={edgeConflictDialog.open}
+        operation={edgeConflictDialog.operation}
+        conflicts={edgeConflictDialog.conflicts}
+        onConfirm={edgeConflictDialog.onConfirm}
+        onCancel={() => setEdgeConflictDialog(prev => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 }

@@ -46,6 +46,8 @@ interface FlowCanvasProps {
   filteredSteps?: Step[];
   /** Edges to display (filtered by navigation level) */
   filteredEdges?: { id: string; sourceStepId: string; targetStepId: string; sourceHandle?: string; label?: string; animated?: boolean }[];
+  /** Step ID that is currently cut (for visual feedback) */
+  cutStepId?: string | null;
 }
 
 /**
@@ -102,7 +104,8 @@ function convertStepsToNodes(
   stepResults?: Record<string, StepExecutionResult>,
   startStepId?: string,
   readonly: boolean = false,
-  filteredSteps?: Step[]
+  filteredSteps?: Step[],
+  cutStepId?: string | null
 ): Node[] {
   // Use provided filtered steps or auto-filter
   const stepsToDisplay = filteredSteps || (() => {
@@ -129,6 +132,7 @@ function convertStepsToNodes(
         currentIteration: result?.currentIteration,
         totalIterations: result?.iterations,
         isStartStep: step.id === startStepId,
+        isCut: step.id === cutStepId,
         // Pass all steps for Group and Loop nodes to resolve child steps
         allSteps: (step.type === 'group' || step.type === 'loop') ? steps : undefined,
       },
@@ -189,6 +193,7 @@ function FlowCanvasInner({
   showGrid = true,
   filteredSteps,
   filteredEdges,
+  cutStepId,
 }: FlowCanvasProps) {
   const { fitView } = useReactFlow();
 
@@ -200,26 +205,14 @@ function FlowCanvasInner({
     []
   );
 
-  // Convert scenario data to React Flow format
-  const initialNodes = useMemo(
-    () => convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps),
-    [scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps]
-  );
-
-  const initialEdges = useMemo(
-    () => convertScenarioEdges(scenario, readonly, filteredEdges),
-    [scenario, readonly, filteredEdges]
-  );
-
-  // Local state for nodes and edges
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  // Local state for nodes and edges - initialize with empty arrays
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   // Update nodes when steps or results change
-  // Using useEffect instead of useMemo for side effects
   useEffect(() => {
-    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps));
-  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps]);
+    setNodes(convertStepsToNodes(scenario.steps, stepResults, scenario.startStepId, readonly, filteredSteps, cutStepId));
+  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps, cutStepId]);
 
   // Update edges when scenario edges change
   useEffect(() => {

@@ -4,3 +4,5 @@
  */
 
 export { useScenarioExecution } from './useScenarioExecution';
+export { useClipboard } from './useClipboard';
+export type { ClipboardData, ClipboardOperation, UseClipboardReturn } from './useClipboard';

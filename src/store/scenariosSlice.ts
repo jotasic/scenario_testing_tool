@@ -360,6 +360,49 @@ const scenariosSlice = createSlice({
       }
     },
 
+    /**
+     * Atomic move operation: moves a step between containers and deletes conflicting edges
+     * This is a single action that will appear as one undo/redo step
+     */
+    moveStepToContainer: (
+      state,
+      action: PayloadAction<{
+        scenarioId: string;
+        stepId: string;
+        sourceContainerId: string | null;
+        targetContainerId: string | null;
+        edgesToDelete: string[];
+      }>
+    ) => {
+      const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
+      if (!scenario) return;
+
+      const { stepId, sourceContainerId, targetContainerId, edgesToDelete } = action.payload;
+
+      // 1. Remove from source container if it exists
+      if (sourceContainerId) {
+        const sourceContainer = scenario.steps.find(s => s.id === sourceContainerId);
+        if (sourceContainer && (sourceContainer.type === 'loop' || sourceContainer.type === 'group')) {
+          sourceContainer.stepIds = sourceContainer.stepIds.filter(id => id !== stepId);
+        }
+      }
+
+      // 2. Add to target container if it exists
+      if (targetContainerId) {
+        const targetContainer = scenario.steps.find(s => s.id === targetContainerId);
+        if (targetContainer && (targetContainer.type === 'loop' || targetContainer.type === 'group')) {
+          if (!targetContainer.stepIds.includes(stepId)) {
+            targetContainer.stepIds.push(stepId);
+          }
+        }
+      }
+
+      // 3. Delete conflicting edges
+      scenario.edges = scenario.edges.filter(e => !edgesToDelete.includes(e.id));
+
+      scenario.updatedAt = new Date().toISOString();
+    },
+
     // Bulk operations
     loadScenarios: (state, action: PayloadAction<Scenario[]>) => {
       // Replace all scenarios with loaded ones
@@ -393,6 +436,7 @@ export const {
   deleteEdge,
   addStepToContainer,
   removeStepFromContainer,
+  moveStepToContainer,
   setParameterSchema,
   addParameterSchema,
   updateParameterSchema,
@@ -421,6 +465,7 @@ export default undoable(scenariosSlice.reducer, {
       'scenarios/deleteEdge',
       'scenarios/addStepToContainer',
       'scenarios/removeStepFromContainer',
+      'scenarios/moveStepToContainer',
       'scenarios/setParameterSchema',
       'scenarios/addParameterSchema',
       'scenarios/updateParameterSchema',

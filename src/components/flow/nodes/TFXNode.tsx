@@ -24,6 +24,7 @@ interface TFXNodeData {
   currentIteration?: number;
   totalIterations?: number;
   isStartStep?: boolean;
+  isCut?: boolean;
   allSteps?: Step[];
 }
 
@@ -113,7 +114,7 @@ function getStepDetails(step: Step, currentIteration?: number, totalIterations?:
 }
 
 function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
-  const { step, status, currentIteration, totalIterations, isStartStep } = data;
+  const { step, status, currentIteration, totalIterations, isStartStep, isCut } = data;
 
   const typeColor = TYPE_COLORS[step.type] || '#666';
   const borderColor = status ? STATUS_COLORS[status] : '#E0E0E0';
@@ -121,6 +122,15 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
 
   // Running animation
   const isRunning = status === 'running';
+
+  // Cut visualization styles
+  const cutStyles = isCut ? {
+    opacity: 0.5,
+    borderColor: '#FF9800',
+    borderStyle: 'dashed',
+    borderWidth: '3px',
+    backgroundColor: 'rgba(255, 152, 0, 0.08)',
+  } : {};
 
   // Selection styles - combining A (glow), B (background), C (animation)
   const selectionStyles = selected ? {
@@ -167,8 +177,10 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
         '&:hover': {
           boxShadow: 2,
         },
-        // Apply selection styles
-        ...selectionStyles,
+        // Apply cut styles (takes precedence over selection)
+        ...cutStyles,
+        // Apply selection styles (only if not cut)
+        ...(!isCut && selectionStyles),
       }}
     >
       {/* Target Handle (Top) */}
