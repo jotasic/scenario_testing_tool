@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Box, Paper, Tabs, Tab, IconButton, Tooltip, Stack } from '@mui/material';
 import { FlowCanvas } from '@/components/flow';
 import { FlowBreadcrumbs, type NavigationLevel } from '@/components/flow/FlowBreadcrumbs';
+import { ResizableDetailPanel } from '@/components/layout/ResizableDetailPanel';
 import { ExecutionControls } from '@/components/execution/ExecutionControls';
 import { ExecutionLogs } from '@/components/execution/ExecutionLogs';
 import { ExecutionProgressTable } from '@/components/execution/ExecutionProgressTable';
@@ -270,81 +271,86 @@ export function ExecutionPage() {
         </Box>
 
         {/* Right: Tabs Panel */}
-        <Box
-          sx={{
-            width: 400,
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            overflow: 'hidden',
-          }}
+        <ResizableDetailPanel
+          storageKey="executionPageRightPanelWidth"
+          defaultWidth={400}
+          minWidth={320}
+          maxWidth={800}
         >
-          <Tabs
-            value={rightPanelTab}
-            onChange={(_, newValue) => setRightPanelTab(newValue)}
-            sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}
-            variant="scrollable"
-            scrollButtons="auto"
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              overflow: 'hidden',
+            }}
           >
-            <Tab label="Parameters" value="params" />
-            <Tab label="Step Detail" value="detail" />
-            <Tab label="Step Result" value="result" />
-            <Tab label="Progress" value="progress" />
-            <Tab label="Logs" value="logs" />
-          </Tabs>
+            <Tabs
+              value={rightPanelTab}
+              onChange={(_, newValue) => setRightPanelTab(newValue)}
+              sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}
+              variant="scrollable"
+              scrollButtons="auto"
+            >
+              <Tab label="Parameters" value="params" />
+              <Tab label="Step Detail" value="detail" />
+              <Tab label="Step Result" value="result" />
+              <Tab label="Progress" value="progress" />
+              <Tab label="Logs" value="logs" />
+            </Tabs>
 
-          <Box sx={{ flexGrow: 1, overflow: 'auto', p: rightPanelTab === 'progress' ? 0 : 2 }}>
-            {rightPanelTab === 'params' && (
-              <ParameterInputPanel
-                schemas={currentScenario.parameterSchema || []}
-                onApply={(values) => {
-                  setParams(values);
-                }}
-              />
-            )}
+            <Box sx={{ flexGrow: 1, overflow: 'auto', p: rightPanelTab === 'progress' ? 0 : 2 }}>
+              {rightPanelTab === 'params' && (
+                <ParameterInputPanel
+                  schemas={currentScenario.parameterSchema || []}
+                  onApply={(values) => {
+                    setParams(values);
+                  }}
+                />
+              )}
 
-            {rightPanelTab === 'detail' && (
-              selectedStep && currentScenario ? (
-                <StepDetailPanel
-                  step={selectedStep}
-                  stepResult={selectedStepResult || undefined}
+              {rightPanelTab === 'detail' && (
+                selectedStep && currentScenario ? (
+                  <StepDetailPanel
+                    step={selectedStep}
+                    stepResult={selectedStepResult || undefined}
+                    scenario={currentScenario}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No Step Selected"
+                    message="Click on a step in the flow diagram to view detailed information."
+                  />
+                )
+              )}
+
+              {rightPanelTab === 'result' && (
+                selectedStepId ? (
+                  <StepResultViewer stepId={selectedStepId} />
+                ) : (
+                  <EmptyState
+                    title="No Step Selected"
+                    message="Click on a step in the flow diagram to view its execution result."
+                  />
+                )
+              )}
+
+              {rightPanelTab === 'progress' && (
+                <ExecutionProgressTable
                   scenario={currentScenario}
+                  stepResults={stepResults}
+                  onStepClick={(stepId) => {
+                    // Switch to detail tab and select the step
+                    setRightPanelTab('detail');
+                    dispatch(setSelectedStep(stepId));
+                  }}
                 />
-              ) : (
-                <EmptyState
-                  title="No Step Selected"
-                  message="Click on a step in the flow diagram to view detailed information."
-                />
-              )
-            )}
+              )}
 
-            {rightPanelTab === 'result' && (
-              selectedStepId ? (
-                <StepResultViewer stepId={selectedStepId} />
-              ) : (
-                <EmptyState
-                  title="No Step Selected"
-                  message="Click on a step in the flow diagram to view its execution result."
-                />
-              )
-            )}
-
-            {rightPanelTab === 'progress' && (
-              <ExecutionProgressTable
-                scenario={currentScenario}
-                stepResults={stepResults}
-                onStepClick={(stepId) => {
-                  // Switch to detail tab and select the step
-                  setRightPanelTab('detail');
-                  dispatch(setSelectedStep(stepId));
-                }}
-              />
-            )}
-
-            {rightPanelTab === 'logs' && <ExecutionLogs />}
+              {rightPanelTab === 'logs' && <ExecutionLogs />}
+            </Box>
           </Box>
-        </Box>
+        </ResizableDetailPanel>
       </Box>
 
       {/* Manual Step Dialog */}

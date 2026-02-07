@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import type { NodeChange, EdgeChange, Connection } from 'reactflow';
 import { ResizablePanels } from '@/components/layout/ResizablePanels';
+import { ResizableDetailPanel } from '@/components/layout/ResizableDetailPanel';
 import { EmptyState } from '@/components/common/EmptyState';
 import { StepEditor } from '@/components/steps/StepEditor';
 import { ServerEditor } from '@/components/servers/ServerEditor';
@@ -55,7 +56,7 @@ import {
 } from '@/store/hooks';
 import { setSelectedStep } from '@/store/uiSlice';
 import { addServer, setSelectedServer } from '@/store/serversSlice';
-import { updateStep, addEdge, deleteEdge, addStep, deleteStep, autoLayoutSteps, setParameterSchema, updateScenario } from '@/store/scenariosSlice';
+import { updateStep, addEdge, deleteEdge, addStep, deleteStep, autoLayoutSteps, setParameterSchema, updateScenario, addStepToContainer } from '@/store/scenariosSlice';
 import type { Server, Step, ParameterSchema } from '@/types';
 
 export function ConfigPage() {
@@ -246,10 +247,20 @@ export function ConfigPage() {
     (step: Step) => {
       if (!currentScenario) return;
       dispatch(addStep({ scenarioId: currentScenario.id, step }));
+
+      // If inside a container (Loop/Group), add the step to that container
+      if (currentContainerId) {
+        dispatch(addStepToContainer({
+          scenarioId: currentScenario.id,
+          containerId: currentContainerId,
+          stepId: step.id,
+        }));
+      }
+
       dispatch(setSelectedStep(step.id));
       dispatch(setSelectedServer(null));
     },
-    [dispatch, currentScenario]
+    [dispatch, currentScenario, currentContainerId]
   );
 
   const handleAutoLayout = useCallback(
@@ -688,22 +699,18 @@ export function ConfigPage() {
 
         {/* Step Detail Panel - shown when a step is selected and at root level */}
         {showDetailPanel && selectedStepForDetail && currentScenario && (
-          <Box
-            sx={{
-              flex: '0 0 40%',
-              minWidth: 320,
-              maxWidth: 600,
-              borderLeft: 1,
-              borderColor: 'divider',
-              overflow: 'hidden',
-            }}
+          <ResizableDetailPanel
+            storageKey="configPageStepDetailPanelWidth"
+            defaultWidth={400}
+            minWidth={320}
+            maxWidth={800}
           >
             <StepDetailPanel
               step={selectedStepForDetail}
               scenario={currentScenario}
               onClose={handleCloseDetailPanel}
             />
-          </Box>
+          </ResizableDetailPanel>
         )}
       </Box>
     </Box>
