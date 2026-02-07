@@ -263,20 +263,38 @@ function FlowCanvasInner({
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // Update nodes when steps or results change
+  // Update nodes when steps or results change (excluding drag state changes)
+  // We update node data without resetting the entire nodes array to preserve React Flow's internal state
   useEffect(() => {
-    setNodes(convertStepsToNodes(
-      scenario.steps,
-      stepResults,
-      scenario.startStepId,
-      readonly,
-      filteredSteps,
-      cutStepId,
-      draggingNodeId,
-      dragOverContainerId,
-      scenario.steps
-    ));
-  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps, cutStepId, draggingNodeId, dragOverContainerId]);
+    setNodes((prevNodes) => {
+      // Only update if scenario.steps, stepResults, or filteredSteps changed
+      // Don't reset on draggingNodeId or dragOverContainerId changes
+      const newNodes = convertStepsToNodes(
+        scenario.steps,
+        stepResults,
+        scenario.startStepId,
+        readonly,
+        filteredSteps,
+        cutStepId,
+        draggingNodeId,
+        dragOverContainerId,
+        scenario.steps
+      );
+
+      // Update node data while preserving positions and React Flow's internal state
+      return prevNodes.map((prevNode) => {
+        const newNode = newNodes.find((n) => n.id === prevNode.id);
+        if (!newNode) return prevNode;
+
+        // Merge: keep position from prevNode, update data from newNode
+        return {
+          ...prevNode,
+          data: newNode.data,
+          type: newNode.type,
+        };
+      });
+    });
+  }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps, cutStepId]);
 
   // Update edges when scenario edges change
   useEffect(() => {
