@@ -122,6 +122,17 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
   // Running animation
   const isRunning = status === 'running';
 
+  // Selection styles - combining A (glow), B (background), C (animation)
+  const selectionStyles = selected ? {
+    // A) Glow effect - bright blue border and shadow
+    borderColor: '#1976D2',
+    boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.3), 0 4px 12px rgba(25, 118, 210, 0.4)',
+    // B) Background color change - light blue tint
+    backgroundColor: 'rgba(25, 118, 210, 0.08)',
+    // C) Animation - subtle pulse
+    animation: 'selected-pulse 1.5s ease-in-out infinite',
+  } : {};
+
   return (
     <Box
       sx={{
@@ -130,7 +141,7 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
         border: '2px solid',
         borderColor: borderColor,
         borderRadius: '4px',
-        boxShadow: selected ? 3 : 1,
+        boxShadow: 1,
         transition: 'all 0.2s',
         overflow: 'hidden',
         animation: isRunning ? 'tfx-pulse 2s ease-in-out infinite' : 'none',
@@ -144,9 +155,20 @@ function TFXNode({ data, selected }: NodeProps<TFXNodeData>) {
             borderColor: '#2196F3',
           },
         },
+        // C) Selected pulse animation
+        '@keyframes selected-pulse': {
+          '0%, 100%': {
+            boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.3), 0 4px 12px rgba(25, 118, 210, 0.4)',
+          },
+          '50%': {
+            boxShadow: '0 0 0 5px rgba(25, 118, 210, 0.2), 0 4px 16px rgba(25, 118, 210, 0.5)',
+          },
+        },
         '&:hover': {
           boxShadow: 2,
         },
+        // Apply selection styles
+        ...selectionStyles,
       }}
     >
       {/* Target Handle (Top) */}
