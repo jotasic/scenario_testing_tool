@@ -263,38 +263,47 @@ function FlowCanvasInner({
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // Update nodes when steps or results change (excluding drag state changes)
-  // We update node data without resetting the entire nodes array to preserve React Flow's internal state
+  // Update nodes when steps or results change
   useEffect(() => {
-    setNodes((prevNodes) => {
-      // Only update if scenario.steps, stepResults, or filteredSteps changed
-      // Don't reset on draggingNodeId or dragOverContainerId changes
-      const newNodes = convertStepsToNodes(
-        scenario.steps,
-        stepResults,
-        scenario.startStepId,
-        readonly,
-        filteredSteps,
-        cutStepId,
-        draggingNodeId,
-        dragOverContainerId,
-        scenario.steps
-      );
-
-      // Update node data while preserving positions and React Flow's internal state
-      return prevNodes.map((prevNode) => {
-        const newNode = newNodes.find((n) => n.id === prevNode.id);
-        if (!newNode) return prevNode;
-
-        // Merge: keep position from prevNode, update data from newNode
-        return {
-          ...prevNode,
-          data: newNode.data,
-          type: newNode.type,
-        };
-      });
-    });
+    setNodes(convertStepsToNodes(
+      scenario.steps,
+      stepResults,
+      scenario.startStepId,
+      readonly,
+      filteredSteps,
+      cutStepId,
+      null, // Don't include drag state in initial render
+      null,
+      scenario.steps
+    ));
   }, [scenario.steps, stepResults, scenario.startStepId, setNodes, readonly, filteredSteps, cutStepId]);
+
+  // Update drag state in existing nodes without resetting positions
+  useEffect(() => {
+    if (draggingNodeId === null && dragOverContainerId === null) return;
+
+    setNodes((prevNodes) =>
+      prevNodes.map((node) => {
+        const step = scenario.steps.find((s) => s.id === node.id);
+        if (!step) return node;
+
+        const isDragging = node.id === draggingNodeId;
+        const isDragTarget = node.id === dragOverContainerId;
+        const isContainer = step.type === 'loop' || step.type === 'group';
+        const isDropDisabled = draggingNodeId && isContainer && !canDropIntoContainer(draggingNodeId, node.id, scenario.steps);
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            isDragging,
+            isDragTarget,
+            isDropDisabled,
+          },
+        };
+      })
+    );
+  }, [draggingNodeId, dragOverContainerId, scenario.steps, setNodes]);
 
   // Update edges when scenario edges change
   useEffect(() => {
