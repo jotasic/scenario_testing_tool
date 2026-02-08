@@ -89,12 +89,14 @@ export const ObjectFieldInput: React.FC<ObjectFieldInputProps> = ({
           </Typography>
         </Typography>
       </AccordionSummary>
-      <AccordionDetails sx={{ pt: 0 }}>
+      <AccordionDetails sx={{ pt: 0, pb: 2 }}>
         <Box
           sx={{
             pl: 2,
             borderLeft: 2,
             borderColor: 'divider',
+            maxHeight: '600px',
+            overflowY: 'auto',
           }}
         >
           <DynamicParameterForm

@@ -337,6 +337,10 @@ function renderObjectField(
           '& .MuiInputBase-input': {
             fontFamily: 'monospace',
             fontSize: '0.8rem',
+            color: 'text.primary',
+          },
+          '& .MuiInputBase-root': {
+            resize: 'both',
           },
         }}
       />
