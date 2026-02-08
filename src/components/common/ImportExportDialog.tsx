@@ -226,18 +226,16 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
               </RadioGroup>
             </FormControl>
 
-            {exportScope === 'current' && (
-              <FormControl component="fieldset" sx={{ mb: 2 }}>
-                <FormLabel component="legend">Format</FormLabel>
-                <RadioGroup
-                  value={exportFormat}
-                  onChange={e => setExportFormat(e.target.value as ExportFormat)}
-                >
-                  <FormControlLabel value="json" control={<Radio />} label="JSON" />
-                  <FormControlLabel value="yaml" control={<Radio />} label="YAML" />
-                </RadioGroup>
-              </FormControl>
-            )}
+            <FormControl component="fieldset" sx={{ mb: 2 }}>
+              <FormLabel component="legend">Format</FormLabel>
+              <RadioGroup
+                value={exportFormat}
+                onChange={e => setExportFormat(e.target.value as ExportFormat)}
+              >
+                <FormControlLabel value="json" control={<Radio />} label="JSON" />
+                <FormControlLabel value="yaml" control={<Radio />} label="YAML" />
+              </RadioGroup>
+            </FormControl>
 
             {exportScope === 'current' && !currentScenario && (
               <Alert severity="warning">
