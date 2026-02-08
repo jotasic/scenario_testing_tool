@@ -154,6 +154,21 @@ export function ConfigPage() {
   };
 
   /**
+   * Auto-expand containers in the navigation path
+   * When entering a nested view, automatically expand the path to show where we are
+   */
+  useEffect(() => {
+    if (navigationPath.length > 0) {
+      const pathStepIds = navigationPath.map(level => level.stepId);
+      setExpandedSteps(prev => {
+        const newSet = new Set(prev);
+        pathStepIds.forEach(id => newSet.add(id));
+        return newSet;
+      });
+    }
+  }, [navigationPath]);
+
+  /**
    * Get the current container ID based on navigation path
    * Returns null if at root level
    */
