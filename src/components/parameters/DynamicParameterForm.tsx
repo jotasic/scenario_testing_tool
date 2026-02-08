@@ -267,6 +267,7 @@ function renderArrayField(
           '& .MuiInputBase-input': {
             fontFamily: 'monospace',
             fontSize: '0.8rem',
+            color: 'inherit',
           },
         }}
       />
@@ -337,6 +338,7 @@ function renderObjectField(
           '& .MuiInputBase-input': {
             fontFamily: 'monospace',
             fontSize: '0.8rem',
+            color: 'inherit',
           },
         }}
       />
@@ -382,6 +384,9 @@ function renderAnyField(
         sx={{
           fontFamily: 'monospace',
           fontSize: '0.875rem',
+          '& .MuiInputBase-input': {
+            color: 'inherit',
+          },
         }}
       />
     </Box>

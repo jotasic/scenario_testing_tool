@@ -89,7 +89,7 @@ export const ObjectFieldInput: React.FC<ObjectFieldInputProps> = ({
           </Typography>
         </Typography>
       </AccordionSummary>
-      <AccordionDetails sx={{ pt: 0 }}>
+      <AccordionDetails sx={{ pt: 0, maxHeight: '600px', overflowY: 'auto' }}>
         <Box
           sx={{
             pl: 2,

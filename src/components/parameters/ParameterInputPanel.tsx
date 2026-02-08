@@ -313,8 +313,9 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
                 fontFamily: 'monospace',
                 fontSize: '0.875rem',
                 padding: '16px',
-                resize: 'vertical',
+                resize: 'both',
                 backgroundColor: 'transparent',
+                color: 'inherit',
               }}
               aria-label="JSON editor"
             />
