@@ -23,7 +23,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { Box, Button, Tooltip } from '@mui/material';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import type { Scenario, Step, StepExecutionResult, LoopStep, GroupStep } from '@/types';
+import type { Scenario, Step, StepExecutionResult } from '@/types';
 import { tfxNodeTypes } from './nodes';
 import { getLayoutedElements } from '@/utils/layoutUtils';
 import TFXEdge from './edges/TFXEdge';
@@ -424,8 +424,6 @@ function FlowCanvasInner({
       const nodeWidth = 180; // TFX node width
       const nodeHeight = 100; // Approximate TFX node height
 
-      let droppedOnContainer = false;
-
       for (const containerNode of containerNodes) {
         // Can't drop on itself
         if (containerNode.id === node.id) continue;
@@ -447,25 +445,12 @@ function FlowCanvasInner({
 
         if (isOverContainer) {
           onDropOnContainer(node.id, containerNode.id);
-          droppedOnContainer = true;
           break;
         }
       }
 
-      // If not dropped on any container, check if it's being moved out of its current container
-      // This allows dropping on empty space to move to root level
-      if (!droppedOnContainer && dragOverContainerId === null) {
-        // Check if the node is currently in a container
-        const isInContainer = scenario.steps.some(step => {
-          if (step.type !== 'loop' && step.type !== 'group') return false;
-          return (step as LoopStep | GroupStep).stepIds.includes(node.id);
-        });
-
-        // If in a container and dragged away, move to root level (null)
-        if (isInContainer) {
-          onDropOnContainer(node.id, null);
-        }
-      }
+      // Note: "Move to root level" is only available via context menu "Extract to Root Level"
+      // to prevent accidental moves during simple drag repositioning
 
       // Clear drag state
       setDraggingNodeId(null);
