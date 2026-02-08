@@ -171,9 +171,9 @@ export function ExecutionProgressTable({
     return () => clearInterval(interval);
   }, [stepResults]);
 
-  // Flatten steps (including nested steps in loops/groups)
+  // Flatten steps (including nested steps in loops/groups) with depth info
   const allSteps = useMemo(() => {
-    const steps: Step[] = [];
+    const steps: (Step & { _depth?: number })[] = [];
     const visited = new Set<string>();
 
     const collectSteps = (stepList: Step[], depth = 0) => {
@@ -181,7 +181,8 @@ export function ExecutionProgressTable({
         if (visited.has(step.id)) return;
         visited.add(step.id);
 
-        steps.push(step);
+        // Add depth information to step
+        steps.push(Object.assign({}, step, { _depth: depth }));
 
         // Recursively collect child steps
         if ((step.type === 'loop' || step.type === 'group') && step.stepIds) {
@@ -273,8 +274,20 @@ export function ExecutionProgressTable({
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                       maxWidth: 200,
+                      paddingLeft: step._depth && step._depth > 0 ? `${step._depth * 16}px` : 0,
                     }}
                   >
+                    {step._depth && step._depth > 0 && (
+                      <span
+                        style={{
+                          marginRight: '8px',
+                          fontSize: '0.8em',
+                          color: '#999',
+                        }}
+                      >
+                        ↳
+                      </span>
+                    )}
                     {step.name}
                   </Typography>
                   {step.description && (
@@ -287,6 +300,7 @@ export function ExecutionProgressTable({
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         maxWidth: 200,
+                        paddingLeft: step._depth && step._depth > 0 ? `${step._depth * 16}px` : 0,
                       }}
                     >
                       {step.description}
