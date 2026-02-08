@@ -220,13 +220,14 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
           }
           label="Save Response"
         />
-        {step.saveResponse && (
-          <TextField
-            label="Response Alias"
-            value={step.responseAlias || ''}
-            onChange={(e) => onChange({ responseAlias: e.target.value })}
-            placeholder={step.id}
-            helperText={
+        <TextField
+          label="Response Alias"
+          value={step.responseAlias || ''}
+          onChange={(e) => onChange({ responseAlias: e.target.value })}
+          placeholder={step.id}
+          disabled={!step.saveResponse}
+          helperText={
+            step.saveResponse ? (
               <Box component="span">
                 Reference this response in other steps as:{' '}
                 <code style={{ backgroundColor: '#f5f5f5', padding: '0 4px', borderRadius: 2 }}>
@@ -237,10 +238,12 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
                   {`\${responses.${step.responseAlias || step.id}.data.id}`}
                 </code>
               </Box>
-            }
-            size="small"
-          />
-        )}
+            ) : (
+              'Enable "Save Response" to set a response alias'
+            )
+          }
+          size="small"
+        />
       </Box>
 
       {/* Timeout */}
