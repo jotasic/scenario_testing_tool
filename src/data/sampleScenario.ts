@@ -347,9 +347,18 @@ export const sampleScenario: Scenario = {
       targetStepId: 'step_delayed',
     },
     {
-      id: 'edge_delayed_to_final',
+      id: 'edge_delayed_has_stars',
       sourceStepId: 'step_delayed',
       targetStepId: 'step_final_success',
+      sourceHandle: 'branch_has_stars',
+      label: 'Has Stars',
+    },
+    {
+      id: 'edge_delayed_no_stars',
+      sourceStepId: 'step_delayed',
+      targetStepId: 'step_final_success',
+      sourceHandle: 'branch_no_stars',
+      label: 'Few Stars',
     },
   ],
 
