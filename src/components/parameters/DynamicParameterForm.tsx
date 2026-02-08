@@ -234,7 +234,15 @@ function renderArrayField(
   }
 
   // Fallback to JSON editor for arrays without defined itemSchema
-  const stringValue = JSON.stringify(value, null, 2);
+  const [localValue, setLocalValue] = React.useState(JSON.stringify(value, null, 2));
+  const [isEditing, setIsEditing] = React.useState(false);
+
+  // Only update local value when not editing and external value changes
+  React.useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(JSON.stringify(value, null, 2));
+    }
+  }, [value, isEditing]);
 
   return (
     <Box>
@@ -249,15 +257,18 @@ function renderArrayField(
         size="small"
         multiline
         rows={6}
-        value={stringValue}
-        onChange={(e) => {
+        value={localValue}
+        onFocus={() => setIsEditing(true)}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={() => {
+          setIsEditing(false);
           try {
-            const parsed = JSON.parse(e.target.value);
+            const parsed = JSON.parse(localValue);
             if (Array.isArray(parsed)) {
               onChange(schema.name, parsed);
             }
           } catch {
-            // Keep as-is while editing invalid JSON
+            setLocalValue(JSON.stringify(value, null, 2));
           }
         }}
         placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '[\n  "item1",\n  "item2"\n]'}
@@ -267,7 +278,7 @@ function renderArrayField(
           '& .MuiInputBase-input': {
             fontFamily: 'monospace',
             fontSize: '0.8rem',
-            color: 'inherit',
+            color: 'text.primary',
           },
         }}
       />
@@ -307,7 +318,15 @@ function renderObjectField(
   }
 
   // Fallback to JSON editor for objects without defined properties
-  const stringValue = JSON.stringify(value, null, 2);
+  const [localValue, setLocalValue] = React.useState(JSON.stringify(value, null, 2));
+  const [isEditing, setIsEditing] = React.useState(false);
+
+  // Only update local value when not editing and external value changes
+  React.useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(JSON.stringify(value, null, 2));
+    }
+  }, [value, isEditing]);
 
   return (
     <Box>
@@ -322,13 +341,16 @@ function renderObjectField(
         size="small"
         multiline
         rows={6}
-        value={stringValue}
-        onChange={(e) => {
+        value={localValue}
+        onFocus={() => setIsEditing(true)}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={() => {
+          setIsEditing(false);
           try {
-            const parsed = JSON.parse(e.target.value);
+            const parsed = JSON.parse(localValue);
             onChange(schema.name, parsed);
           } catch {
-            // Keep as-is while editing invalid JSON
+            setLocalValue(JSON.stringify(value, null, 2));
           }
         }}
         placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '{\n  "key": "value"\n}'}
@@ -338,7 +360,7 @@ function renderObjectField(
           '& .MuiInputBase-input': {
             fontFamily: 'monospace',
             fontSize: '0.8rem',
-            color: 'inherit',
+            color: 'text.primary',
           },
         }}
       />
@@ -354,7 +376,17 @@ function renderAnyField(
   value: ParameterValue,
   onChange: (name: string, value: ParameterValue) => void
 ) {
-  const stringValue = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  const [localValue, setLocalValue] = React.useState(
+    typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+  );
+  const [isEditing, setIsEditing] = React.useState(false);
+
+  // Only update local value when not editing and external value changes
+  React.useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+    }
+  }, [value, isEditing]);
 
   return (
     <Box>
@@ -369,23 +401,25 @@ function renderAnyField(
         size="small"
         multiline
         rows={4}
-        value={stringValue}
-        onChange={(e) => {
+        value={localValue}
+        onFocus={() => setIsEditing(true)}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={() => {
+          setIsEditing(false);
           try {
-            const parsed = JSON.parse(e.target.value);
+            const parsed = JSON.parse(localValue);
             onChange(schema.name, parsed);
           } catch {
-            // Keep as string if not valid JSON
-            onChange(schema.name, e.target.value);
+            onChange(schema.name, localValue);
           }
         }}
         placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '{}'}
         required={schema.required}
         sx={{
-          fontFamily: 'monospace',
-          fontSize: '0.875rem',
           '& .MuiInputBase-input': {
-            color: 'inherit',
+            fontFamily: 'monospace',
+            fontSize: '0.875rem',
+            color: 'text.primary',
           },
         }}
       />

@@ -300,24 +300,33 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
             sx={{
               p: 0,
               overflow: 'hidden',
+              resize: 'both',
+              minHeight: '400px',
+              minWidth: '100%',
             }}
           >
-            <textarea
+            <Box
+              component="textarea"
               value={jsonValue}
-              onChange={(e) => handleJsonChange(e.target.value)}
-              style={{
+              onChange={(e) => handleJsonChange(e.currentTarget.value)}
+              aria-label="JSON editor"
+              sx={{
                 width: '100%',
+                height: '100%',
                 minHeight: '400px',
                 border: 'none',
                 outline: 'none',
                 fontFamily: 'monospace',
                 fontSize: '0.875rem',
-                padding: '16px',
+                padding: 2,
                 resize: 'both',
                 backgroundColor: 'transparent',
-                color: 'inherit',
+                color: 'text.primary',
+                '&::placeholder': {
+                  color: 'text.secondary',
+                  opacity: 0.7,
+                },
               }}
-              aria-label="JSON editor"
             />
           </Paper>
         )}

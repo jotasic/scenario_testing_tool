@@ -5,13 +5,15 @@
 
 import React, { useState } from 'react';
 import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Box,
+  IconButton,
   Typography,
+  Collapse,
 } from '@mui/material';
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import {
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material';
 import type { ParameterSchema, ParameterValue } from '@/types';
 import { DynamicParameterForm } from './DynamicParameterForm';
 
@@ -54,28 +56,25 @@ export const ObjectFieldInput: React.FC<ObjectFieldInputProps> = ({
   }
 
   return (
-    <Accordion
-      expanded={expanded}
-      onChange={(_, isExpanded) => setExpanded(isExpanded)}
-      variant="outlined"
+    <Box
       sx={{
-        '&:before': {
-          display: 'none',
-        },
-        boxShadow: 'none',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        overflow: 'hidden',
       }}
     >
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />}
+      {/* Header */}
+      <Box
         sx={{
-          minHeight: 48,
-          '&.Mui-expanded': {
-            minHeight: 48,
-          },
-          '& .MuiAccordionSummary-content': {
-            my: 1,
-          },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          p: 1,
+          bgcolor: 'action.hover',
+          cursor: 'pointer',
         }}
+        onClick={() => setExpanded(!expanded)}
       >
         <Typography variant="body2" sx={{ fontWeight: 500 }}>
           {name || 'Object'}
@@ -88,23 +87,40 @@ export const ObjectFieldInput: React.FC<ObjectFieldInputProps> = ({
             ({properties.length} {properties.length === 1 ? 'property' : 'properties'})
           </Typography>
         </Typography>
-      </AccordionSummary>
-      <AccordionDetails sx={{ pt: 0, maxHeight: '600px', overflowY: 'auto' }}>
+        <IconButton size="small">
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
+
+      {/* Content - Resizable */}
+      <Collapse in={expanded}>
         <Box
           sx={{
-            pl: 2,
-            borderLeft: 2,
+            minHeight: 50,
+            maxHeight: 600,
+            overflow: 'auto',
+            resize: 'vertical',
+            p: 2,
+            borderTop: 1,
             borderColor: 'divider',
           }}
         >
-          <DynamicParameterForm
-            schemas={properties}
-            values={value}
-            onChange={handleChange}
-            compact
-          />
+          <Box
+            sx={{
+              pl: 2,
+              borderLeft: 2,
+              borderColor: 'divider',
+            }}
+          >
+            <DynamicParameterForm
+              schemas={properties}
+              values={value}
+              onChange={handleChange}
+              compact
+            />
+          </Box>
         </Box>
-      </AccordionDetails>
-    </Accordion>
+      </Collapse>
+    </Box>
   );
 };
