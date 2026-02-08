@@ -3,7 +3,7 @@
  * Provides UI for importing and exporting scenarios and data
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -60,6 +60,20 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
 
   const { exportScenario, exportAll, isExporting, error: exportError } = useExport();
   const { importScenario, importAll, isImporting, error: importError } = useImport();
+
+  /**
+   * Reset to import tab when dialog opens
+   * This ensures users see the import tab first when clicking Load
+   */
+  useEffect(() => {
+    if (open) {
+      setActiveTab('import');
+      setSuccessMessage('');
+      setErrorMessage('');
+      setSelectedFile(null);
+      setShowPreview(false);
+    }
+  }, [open]);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: TabValue) => {
     setActiveTab(newValue);
