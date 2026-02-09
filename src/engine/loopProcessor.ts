@@ -176,9 +176,17 @@ function resolveCountValue(
     count = resolveVariables(count, context);
   }
 
-  if (typeof count !== 'number' || count < 0) {
+  // Convert string numbers to actual numbers
+  if (typeof count === 'string') {
+    const parsed = Number(count);
+    if (!isNaN(parsed)) {
+      count = parsed;
+    }
+  }
+
+  if (typeof count !== 'number' || count < 0 || isNaN(count)) {
     throw new Error(
-      `Count loop count must be a non-negative number. Got: ${typeof count}`
+      `Count loop count must be a non-negative number. Got: ${typeof count} (${count})`
     );
   }
 
