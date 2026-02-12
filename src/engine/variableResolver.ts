@@ -84,6 +84,32 @@ export function resolveVariablePath(
   if (trimmedPath.startsWith('loop.')) {
     const loopPath = trimmedPath.substring('loop.'.length);
 
+    // Handle loop.parent.* paths (access parent loop in nested loops)
+    if (loopPath.startsWith('parent.')) {
+      const parentPath = loopPath.substring('parent.'.length);
+      // Get parent loop context (second from top of stack)
+      const parentLoop = context.loopContexts[context.loopContexts.length - 2];
+
+      if (!parentLoop) {
+        return undefined;
+      }
+
+      if (parentPath === 'index') {
+        return parentLoop.currentIndex;
+      }
+      if (parentPath === 'total') {
+        return parentLoop.totalIterations;
+      }
+      if (parentPath === 'item') {
+        return parentLoop.currentItem;
+      }
+      if (parentPath.startsWith('item.')) {
+        const itemFieldPath = parentPath.substring('item.'.length);
+        return get(parentLoop.currentItem, itemFieldPath);
+      }
+      return undefined;
+    }
+
     // Get the current (top of stack) loop context
     const currentLoop = context.loopContexts[context.loopContexts.length - 1];
 
@@ -94,6 +120,11 @@ export function resolveVariablePath(
     // Handle loop.index
     if (loopPath === 'index') {
       return currentLoop.currentIndex;
+    }
+
+    // Handle loop.total
+    if (loopPath === 'total') {
+      return currentLoop.totalIterations;
     }
 
     // Handle loop.item or loop.item.field
