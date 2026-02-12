@@ -109,11 +109,13 @@ function expandForEachItems(
  *
  * @param loop - ForEach loop configuration
  * @param context - Variable context
+ * @param loopName - Name of the loop step for named access
  * @returns Loop iterator
  */
 function createForEachIterator(
   loop: ForEachLoop,
-  context: VariableContext
+  context: VariableContext,
+  loopName: string
 ): LoopIterator {
   const sourceArray = resolveForEachSource(loop, context);
   const items = expandForEachItems(sourceArray, loop.countField);
@@ -138,6 +140,7 @@ function createForEachIterator(
 
       const loopContext: LoopContext = {
         loopId: loop.id,
+        loopName,
         currentIndex,
         currentItem: items[currentIndex],
         totalIterations,
@@ -198,11 +201,13 @@ function resolveCountValue(
  *
  * @param loop - Count loop configuration
  * @param context - Variable context
+ * @param loopName - Name of the loop step for named access
  * @returns Loop iterator
  */
 function createCountIterator(
   loop: CountLoop,
-  context: VariableContext
+  context: VariableContext,
+  loopName: string
 ): LoopIterator {
   const count = resolveCountValue(loop, context);
   const maxIterations = loop.maxIterations ?? DEFAULT_MAX_ITERATIONS;
@@ -226,6 +231,7 @@ function createCountIterator(
 
       const loopContext: LoopContext = {
         loopId: loop.id,
+        loopName,
         currentIndex,
         currentItem: undefined,
         totalIterations,
@@ -251,11 +257,13 @@ function createCountIterator(
  *
  * @param loop - While loop configuration
  * @param context - Variable context
+ * @param loopName - Name of the loop step for named access
  * @returns Loop iterator
  */
 function createWhileIterator(
   loop: WhileLoop,
-  context: VariableContext
+  context: VariableContext,
+  loopName: string
 ): LoopIterator {
   const maxIterations = loop.maxIterations ?? DEFAULT_MAX_ITERATIONS;
   let currentIndex = 0;
@@ -285,6 +293,7 @@ function createWhileIterator(
 
       const loopContext: LoopContext = {
         loopId: loop.id,
+        loopName,
         currentIndex,
         currentItem: undefined,
         totalIterations: maxIterations,
@@ -320,23 +329,26 @@ function createWhileIterator(
  *
  * @param loop - Loop configuration (forEach, count, or while)
  * @param context - Variable context
+ * @param loopName - Name of the loop step for named access (defaults to loop.id)
  * @returns Loop iterator for step-by-step execution
  * @throws Error if loop type is unsupported or configuration is invalid
  */
 export function createLoopIterator(
   loop: Loop,
-  context: VariableContext
+  context: VariableContext,
+  loopName?: string
 ): LoopIterator {
+  const name = loopName ?? loop.id;
   try {
     switch (loop.type) {
       case 'forEach':
-        return createForEachIterator(loop, context);
+        return createForEachIterator(loop, context, name);
 
       case 'count':
-        return createCountIterator(loop, context);
+        return createCountIterator(loop, context, name);
 
       case 'while':
-        return createWhileIterator(loop, context);
+        return createWhileIterator(loop, context, name);
 
       default:
         throw new Error(`Unsupported loop type: ${(loop as Loop).type}`);

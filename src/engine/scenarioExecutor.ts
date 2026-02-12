@@ -569,7 +569,7 @@ export class ScenarioExecutor {
 
     try {
       const context = this.createContext();
-      const iterator = createLoopIterator(step.loop, context);
+      const iterator = createLoopIterator(step.loop, context, step.name);
 
       let iteration = 0;
 

@@ -30,6 +30,7 @@ import type { GroupStep, Step, RequestStep, ConditionStep, LoopStep } from '@/ty
 import { useCurrentScenario, useAppDispatch } from '@/store/hooks';
 import { addStep } from '@/store/scenariosSlice';
 import { MiniFlowPreview } from './MiniFlowPreview';
+import { AvailableLoopVariables } from './AvailableLoopVariables';
 import { wouldExceedNestingLimit, getNestingLimitMessage } from '@/utils/nestingUtils';
 
 interface GroupStepEditorProps {
@@ -229,6 +230,14 @@ export function GroupStepEditor({ step, allSteps, onChange }: GroupStepEditorPro
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Available Loop Variables */}
+      {scenario && (
+        <AvailableLoopVariables
+          currentStepId={step.id}
+          allSteps={scenario.steps}
+        />
+      )}
+
       {/* Collapsed toggle */}
       <FormControlLabel
         control={

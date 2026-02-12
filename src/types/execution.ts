@@ -111,6 +111,8 @@ export interface ExecutionLog {
 export interface LoopContext {
   /** ID of the loop step */
   loopId: string;
+  /** Name of the loop step (for named loop access: ${loops.loopName.*}) */
+  loopName: string;
   /** Current iteration index (0-based) */
   currentIndex: number;
   /** Current item being processed (for forEach loops) */

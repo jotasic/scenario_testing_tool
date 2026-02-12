@@ -25,8 +25,9 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import type { RequestStep, HttpMethod, StepHeader } from '@/types';
-import { useServers } from '@/store/hooks';
+import { useServers, useCurrentScenario } from '@/store/hooks';
 import { BranchEditor } from './BranchEditor';
+import { AvailableLoopVariables } from './AvailableLoopVariables';
 
 interface RequestStepEditorProps {
   step: RequestStep;
@@ -35,6 +36,7 @@ interface RequestStepEditorProps {
 
 export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
   const servers = useServers();
+  const scenario = useCurrentScenario();
   const [expandHeaders, setExpandHeaders] = useState(false);
   const [expandBranches, setExpandBranches] = useState(false);
   const [expandRetry, setExpandRetry] = useState(false);
@@ -73,6 +75,14 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Available Loop Variables */}
+      {scenario && (
+        <AvailableLoopVariables
+          currentStepId={step.id}
+          allSteps={scenario.steps}
+        />
+      )}
+
       {/* Server and Method */}
       <Box sx={{ display: 'flex', gap: 2 }}>
         <FormControl fullWidth>

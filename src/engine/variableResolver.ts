@@ -140,6 +140,42 @@ export function resolveVariablePath(
     return undefined;
   }
 
+  // Handle loops.loopName.* paths (access loops by name)
+  if (trimmedPath.startsWith('loops.')) {
+    const loopsPath = trimmedPath.substring('loops.'.length);
+    const dotIndex = loopsPath.indexOf('.');
+
+    if (dotIndex === -1) {
+      return undefined;
+    }
+
+    const loopName = loopsPath.substring(0, dotIndex);
+    const fieldPath = loopsPath.substring(dotIndex + 1);
+
+    // Find loop context by name
+    const namedLoop = context.loopContexts.find(lc => lc.loopName === loopName);
+
+    if (!namedLoop) {
+      return undefined;
+    }
+
+    if (fieldPath === 'index') {
+      return namedLoop.currentIndex;
+    }
+    if (fieldPath === 'total') {
+      return namedLoop.totalIterations;
+    }
+    if (fieldPath === 'item') {
+      return namedLoop.currentItem;
+    }
+    if (fieldPath.startsWith('item.')) {
+      const itemFieldPath = fieldPath.substring('item.'.length);
+      return get(namedLoop.currentItem, itemFieldPath);
+    }
+
+    return undefined;
+  }
+
   // Handle system.* paths
   if (trimmedPath.startsWith('system.')) {
     const systemPath = trimmedPath.substring('system.'.length);

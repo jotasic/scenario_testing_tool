@@ -31,6 +31,7 @@ import { useCurrentSteps, useCurrentScenario, useAppDispatch } from '@/store/hoo
 import { addStep } from '@/store/scenariosSlice';
 import { ConditionBuilder } from './ConditionBuilder';
 import { MiniFlowPreview } from './MiniFlowPreview';
+import { AvailableLoopVariables } from './AvailableLoopVariables';
 import { wouldExceedNestingLimit, getNestingLimitMessage } from '@/utils/nestingUtils';
 
 interface LoopStepEditorProps {
@@ -254,6 +255,14 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Available Loop Variables */}
+      {scenario && (
+        <AvailableLoopVariables
+          currentStepId={step.id}
+          allSteps={scenario.steps}
+        />
+      )}
+
       {/* Loop Type Selection */}
       <FormControl fullWidth>
         <InputLabel>Loop Type</InputLabel>
