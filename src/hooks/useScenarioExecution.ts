@@ -8,6 +8,7 @@ import { useCallback } from 'react';
 import { ScenarioExecutor, type ExecutionCallbacks } from '@/engine';
 import {
   useAppDispatch,
+  useAppSelector,
   useCurrentScenario,
   useServers,
   useExecutionContext,
@@ -22,12 +23,11 @@ import {
   updateStepResult,
   addLog,
   saveResponse,
+  setExecutor,
+  clearExecutor,
+  selectExecutor,
 } from '@/store/executionSlice';
 import type { ExecutionMode, StepExecutionResult, ExecutionLog } from '@/types';
-
-// Global executor instance - shared across all hook consumers
-let globalExecutor: ScenarioExecutor | null = null;
-let globalExecutionPromise: Promise<void> | null = null;
 
 /**
  * Hook for managing scenario execution
@@ -39,6 +39,7 @@ export function useScenarioExecution() {
   const servers = useServers();
   const executionContext = useExecutionContext();
   const params = useExecutionParams();
+  const executor = useAppSelector(selectExecutor);
 
   /**
    * Create execution callbacks that dispatch to Redux
@@ -148,14 +149,14 @@ export function useScenarioExecution() {
         })
       );
 
-      // Create new executor instance (global so other components can access it)
-      const executor = new ScenarioExecutor(currentScenario, serverMap);
-      globalExecutor = executor;
+      // Create new executor instance and store in Redux
+      const newExecutor = new ScenarioExecutor(currentScenario, serverMap);
+      dispatch(setExecutor(newExecutor));
 
       // Execute scenario with callbacks
       const callbacks = createCallbacks();
 
-      globalExecutionPromise = executor
+      newExecutor
         .execute(parameterValues || params || {}, {
           stepModeOverrides: stepModeOverrides || executionContext?.stepModeOverrides || {},
           callbacks,
@@ -175,8 +176,7 @@ export function useScenarioExecution() {
           );
         })
         .finally(() => {
-          globalExecutor = null;
-          globalExecutionPromise = null;
+          dispatch(clearExecutor());
         });
     },
     [
@@ -193,61 +193,56 @@ export function useScenarioExecution() {
    * Pause execution
    */
   const pauseExecution = useCallback(() => {
-    if (globalExecutor) {
-      globalExecutor.getControl().pause();
+    if (executor) {
+      executor.getControl().pause();
       dispatch(pauseExecutionAction());
     }
-  }, [dispatch]);
+  }, [executor, dispatch]);
 
   /**
    * Resume execution
    */
   const resumeExecution = useCallback(() => {
-    if (globalExecutor) {
-      globalExecutor.getControl().resume();
+    if (executor) {
+      executor.getControl().resume();
       dispatch(resumeExecutionAction());
     }
-  }, [dispatch]);
+  }, [executor, dispatch]);
 
   /**
    * Stop execution
    */
   const stopExecutionNow = useCallback(() => {
-    if (globalExecutor) {
-      globalExecutor.getControl().stop();
+    if (executor) {
+      executor.getControl().stop();
       dispatch(stopExecution('cancelled'));
+      dispatch(clearExecutor());
     }
-  }, [dispatch]);
+  }, [executor, dispatch]);
 
   /**
    * Check if execution is in progress
    */
-  const isExecuting = useCallback(() => {
-    return globalExecutor !== null && globalExecutionPromise !== null;
-  }, []);
+  const isExecuting = executor !== null;
 
   /**
    * Check if execution is paused
    */
-  const isPaused = useCallback(() => {
-    return globalExecutor?.getControl().isPaused() ?? false;
-  }, []);
+  const isPaused = executor?.getControl().isPaused() ?? false;
 
   /**
    * Check if execution is stopped
    */
-  const isStopped = useCallback(() => {
-    return globalExecutor?.getControl().isStopped() ?? false;
-  }, []);
+  const isStopped = executor?.getControl().isStopped() ?? false;
 
   return {
     executeScenario,
     pauseExecution,
     resumeExecution,
     stopExecution: stopExecutionNow,
-    isExecuting: isExecuting(),
-    isPaused: isPaused(),
-    isStopped: isStopped(),
-    executor: globalExecutor,
+    isExecuting,
+    isPaused,
+    isStopped,
+    executor,
   };
 }

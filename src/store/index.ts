@@ -21,8 +21,8 @@ export const store = configureStore({
       serializableCheck: {
         // Ignore these paths in the state for serialization checks
         // This is useful for storing non-serializable data like Dates or functions
-        ignoredActions: ['execution/executeHttpRequest/fulfilled'],
-        ignoredPaths: ['execution.context.responses'],
+        ignoredActions: ['execution/executeHttpRequest/fulfilled', 'execution/setExecutor'],
+        ignoredPaths: ['execution.context.responses', 'execution.executor'],
       },
     }),
 });

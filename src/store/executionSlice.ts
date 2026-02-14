@@ -15,17 +15,20 @@ import type {
 import axios from 'axios';
 import type { AxiosError } from 'axios';
 import { serializeError } from '@/engine/httpClient';
+import type { ScenarioExecutor } from '@/engine';
 
 interface ExecutionState {
   context: ExecutionContext | null;
   history: ExecutionContext[];
   maxHistorySize: number;
+  executor: ScenarioExecutor | null; // Non-serializable, runtime only
 }
 
 const initialState: ExecutionState = {
   context: null,
   history: [],
   maxHistorySize: 50,
+  executor: null,
 };
 
 // Async thunk for making HTTP requests
@@ -132,6 +135,16 @@ const executionSlice = createSlice({
 
     resetExecution: state => {
       state.context = null;
+      state.executor = null;
+    },
+
+    // Executor management
+    setExecutor: (state, action: PayloadAction<ScenarioExecutor | null>) => {
+      state.executor = action.payload;
+    },
+
+    clearExecutor: state => {
+      state.executor = null;
     },
 
     // Step execution
@@ -304,6 +317,8 @@ export const {
   resumeExecution,
   stopExecution,
   resetExecution,
+  setExecutor,
+  clearExecutor,
   setCurrentStep,
   updateStepResult,
   saveResponse,
@@ -320,5 +335,8 @@ export const {
   removeFromHistory,
   setMaxHistorySize,
 } = executionSlice.actions;
+
+// Selectors
+export const selectExecutor = (state: { execution: ExecutionState }) => state.execution.executor;
 
 export default executionSlice.reducer;
