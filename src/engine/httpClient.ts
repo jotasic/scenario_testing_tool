@@ -68,9 +68,65 @@ export class HttpRequestError extends Error {
 }
 
 /**
+ * Serialized error structure for Redux storage
+ */
+export interface SerializedError {
+  name: string;
+  message: string;
+  stack?: string;
+  status?: number;
+  statusText?: string;
+  response?: unknown;
+  cause?: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
+}
+
+/**
+ * Serializes an error to a plain object for Redux storage
+ * This prevents Redux serialization warnings for Error instances
+ *
+ * @param error - Error to serialize
+ * @returns Plain object representation of the error
+ */
+export function serializeError(error: unknown): SerializedError {
+  if (error instanceof HttpRequestError) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      status: error.status,
+      statusText: error.statusText,
+      response: error.response,
+      cause: error.cause ? {
+        name: error.cause.name,
+        message: error.cause.message,
+        stack: error.cause.stack,
+      } : undefined,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    name: 'UnknownError',
+    message: String(error),
+  };
+}
+
+/**
  * Merges server headers with step headers
  * Step headers take precedence over server headers
  * Only enabled headers are included
+ * Filters out headers with empty keys
  *
  * @param serverHeaders - Headers from server configuration
  * @param stepHeaders - Headers from step configuration
@@ -84,14 +140,14 @@ export function mergeHeaders(
 
   // Add enabled server headers
   for (const header of serverHeaders) {
-    if (header.enabled) {
+    if (header.enabled && header.key.trim() !== '') {
       merged[header.key] = header.value;
     }
   }
 
   // Add enabled step headers (overrides server headers)
   for (const header of stepHeaders) {
-    if (header.enabled) {
+    if (header.enabled && header.key.trim() !== '') {
       merged[header.key] = header.value;
     }
   }

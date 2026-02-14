@@ -29,7 +29,7 @@ import {
   createLoopIterator,
   updateWhileLoopCondition,
 } from './loopProcessor';
-import { executeStepRequest } from './httpClient';
+import { executeStepRequest, serializeError } from './httpClient';
 
 /**
  * Callback functions for execution events
@@ -500,7 +500,7 @@ export class ScenarioExecutor {
         error: {
           code: 'REQUEST_FAILED',
           message,
-          details: error,
+          details: serializeError(error),
         },
       };
 
