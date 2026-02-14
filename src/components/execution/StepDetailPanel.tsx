@@ -36,6 +36,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { Step, Scenario, StepExecutionResult, RequestStep, ConditionStep, LoopStep, GroupStep } from '@/types';
 import FlowCanvas from '@/components/flow/FlowCanvas';
+import { NestedLoopBreadcrumb } from '@/components/execution/NestedLoopBreadcrumb';
 
 // Helper function to get step type emoji/icon
 function getStepTypeIcon(step: Step) {
@@ -665,6 +666,16 @@ export function StepDetailPanel({ step, stepResult, scenario, onClose }: StepDet
                 </Typography>
               )}
             </Stack>
+          )}
+
+          {/* Loop Context Section */}
+          {stepResult?.loopContext && stepResult.loopContext.length > 0 && (
+            <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'medium', display: 'block', mb: 0.5 }}>
+                Loop Context:
+              </Typography>
+              <NestedLoopBreadcrumb loopStack={stepResult.loopContext} />
+            </Box>
           )}
         </Stack>
       </Box>

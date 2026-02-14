@@ -16,6 +16,7 @@ import {
   Typography,
   Chip,
   Paper,
+  Stack,
 } from '@mui/material';
 import {
   CheckCircle as SuccessIcon,
@@ -24,8 +25,9 @@ import {
   RadioButtonUnchecked as PendingIcon,
   RemoveCircle as SkippedIcon,
   HourglassEmpty as WaitingIcon,
+  Loop as LoopIcon,
 } from '@mui/icons-material';
-import type { Scenario, StepExecutionResult, Step } from '@/types';
+import type { Scenario, StepExecutionResult, Step, LoopIterationSnapshot } from '@/types';
 
 interface ExecutionProgressTableProps {
   scenario: Scenario;
@@ -148,6 +150,39 @@ const getResultSummary = (step: Step, result?: StepExecutionResult): string => {
   return '-';
 };
 
+// Format loop context for display
+const formatLoopContext = (loopContext?: LoopIterationSnapshot[], scenario?: Scenario): React.ReactNode => {
+  if (!loopContext || loopContext.length === 0) {
+    return <Typography variant="body2" color="text.secondary">-</Typography>;
+  }
+
+  // Get step name for the innermost loop (most relevant for display)
+  const innermostLoop = loopContext[loopContext.length - 1];
+  const step = scenario?.steps.find(s => s.id === innermostLoop.stepId);
+  const stepName = step?.name || 'Loop';
+
+  // If nested, show count
+  const prefix = loopContext.length > 1 ? `${loopContext.length} nested: ` : '';
+
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      <LoopIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+        {prefix}{stepName}
+      </Typography>
+      <Chip
+        label={`${innermostLoop.currentIteration}/${innermostLoop.totalIterations}`}
+        size="small"
+        sx={{
+          height: 18,
+          fontSize: '0.65rem',
+          fontFamily: 'monospace',
+        }}
+      />
+    </Stack>
+  );
+};
+
 export function ExecutionProgressTable({
   scenario,
   stepResults = {},
@@ -229,6 +264,7 @@ export function ExecutionProgressTable({
             <TableCell sx={{ fontWeight: 'bold' }}>Step Name</TableCell>
             <TableCell sx={{ width: 100, fontWeight: 'bold' }}>Type</TableCell>
             <TableCell sx={{ width: 120, fontWeight: 'bold' }}>Status</TableCell>
+            <TableCell sx={{ width: 180, fontWeight: 'bold' }}>Loop Context</TableCell>
             <TableCell sx={{ width: 100, fontWeight: 'bold' }}>Duration</TableCell>
             <TableCell sx={{ fontWeight: 'bold' }}>Result</TableCell>
           </TableRow>
@@ -346,6 +382,11 @@ export function ExecutionProgressTable({
                       {statusInfo.label}
                     </Typography>
                   </Box>
+                </TableCell>
+
+                {/* Loop Context */}
+                <TableCell>
+                  {formatLoopContext(result?.loopContext, scenario)}
                 </TableCell>
 
                 {/* Duration */}

@@ -84,6 +84,10 @@ export interface StepExecutionResult {
   iterations?: number;
   /** Current iteration number (for loop steps) */
   currentIteration?: number;
+
+  // Loop context (for steps executed inside loops)
+  /** Snapshot of active loop stack when this step was executed */
+  loopContext?: LoopIterationSnapshot[];
 }
 
 /**

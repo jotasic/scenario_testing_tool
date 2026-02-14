@@ -14,6 +14,8 @@ export interface NestedLoopBreadcrumbProps {
   maxDisplayDepth?: number;
   /** Callback when a loop breadcrumb is clicked */
   onLoopClick?: (stepId: string) => void;
+  /** Optional loop stack to display (if not provided, uses activeLoopStack from context) */
+  loopStack?: LoopIterationSnapshot[];
 }
 
 /**
@@ -23,12 +25,13 @@ export interface NestedLoopBreadcrumbProps {
 export function NestedLoopBreadcrumb({
   maxDisplayDepth = 3,
   onLoopClick,
+  loopStack,
 }: NestedLoopBreadcrumbProps) {
   const context = useExecutionContext();
   const scenario = useCurrentScenario();
 
-  // Get the active loop stack from execution context
-  const activeLoopStack: LoopIterationSnapshot[] = context?.activeLoopStack || [];
+  // Get the active loop stack from execution context or use provided loopStack
+  const activeLoopStack: LoopIterationSnapshot[] = loopStack || context?.activeLoopStack || [];
 
   // Return null if no active loops
   if (activeLoopStack.length === 0) {

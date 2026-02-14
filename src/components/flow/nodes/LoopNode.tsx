@@ -13,6 +13,7 @@ import type { LoopStep, Step, StepExecutionStatus } from '@/types';
 import { useDispatch } from 'react-redux';
 import { setSelectedStep } from '@/store/uiSlice';
 import { RecursiveStepList } from './shared';
+import { LoopIterationIndicator } from '@/components/execution/LoopIterationIndicator';
 
 interface LoopNodeData {
   step: LoopStep;
@@ -160,6 +161,12 @@ function LoopNode({ data, selected }: NodeProps<LoopNodeData>) {
           >
             {step.name}
           </Typography>
+          {/* Real-time loop iteration indicator (only shown when loop is actively executing) */}
+          <LoopIterationIndicator
+            stepId={step.id}
+            size="small"
+            showProgressBar={false}
+          />
           {isStartStep && (
             <Chip
               label="START"
