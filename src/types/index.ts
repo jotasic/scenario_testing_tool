@@ -66,5 +66,6 @@ export type {
   StepExecutionResult,
   ExecutionLog,
   LoopContext,
+  LoopIterationSnapshot,
   ExecutionContext,
 } from './execution';

@@ -16,6 +16,7 @@ import type {
   StepExecutionResult,
   ExecutionLog,
   LoopContext,
+  LoopIterationSnapshot,
   Server,
   Branch,
   WhileLoop,
@@ -45,6 +46,12 @@ export interface ExecutionCallbacks {
   onError?: (error: Error, stepId?: string) => void;
   /** Called when execution status changes */
   onStatusChange?: (status: ExecutionStatus) => void;
+  /** Called when entering a loop */
+  onEnterLoop?: (snapshot: LoopIterationSnapshot) => void;
+  /** Called when loop iteration updates */
+  onUpdateLoopIteration?: (stepId: string, currentIteration: number) => void;
+  /** Called when exiting a loop */
+  onExitLoop?: (stepId: string) => void;
 }
 
 /**
@@ -580,6 +587,24 @@ export class ScenarioExecutor {
         // Push loop context onto stack
         this.loopContextStack.push(loopContext);
 
+        // Create and dispatch loop iteration snapshot for visualization
+        const loopSnapshot: LoopIterationSnapshot = {
+          stepId: step.id,
+          currentIteration: iteration + 1, // 1-based for display
+          totalIterations: iterator.totalIterations,
+          depth: this.loopContextStack.length - 1, // 0-based depth
+          parentLoopId: this.loopContextStack.length > 1
+            ? this.loopContextStack[this.loopContextStack.length - 2].loopId
+            : undefined,
+        };
+
+        // Dispatch enter loop on first iteration, update on subsequent iterations
+        if (iteration === 0) {
+          this.callbacks.onEnterLoop?.(loopSnapshot);
+        } else {
+          this.callbacks.onUpdateLoopIteration?.(step.id, iteration + 1);
+        }
+
         this.addLog('debug', `Loop iteration ${iteration + 1}/${iterator.totalIterations}`, {
           stepId: step.id,
           iteration,
@@ -676,6 +701,9 @@ export class ScenarioExecutor {
 
         iteration++;
       }
+
+      // Exit loop - remove from active loop stack
+      this.callbacks.onExitLoop?.(step.id);
 
       this.setStepResult(step.id, {
         stepId: step.id,

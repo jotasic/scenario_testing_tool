@@ -126,6 +126,23 @@ export interface LoopContext {
 }
 
 /**
+ * Snapshot of loop iteration state for visualization
+ * Used to display current loop context in UI components
+ */
+export interface LoopIterationSnapshot {
+  /** ID of the step this loop is associated with */
+  stepId: string;
+  /** Current iteration number (1-based for display) */
+  currentIteration: number;
+  /** Total number of iterations for this loop */
+  totalIterations: number;
+  /** Nesting depth (0 = outermost, 1 = first nested, etc.) */
+  depth: number;
+  /** ID of the parent loop (if nested) */
+  parentLoopId?: string;
+}
+
+/**
  * Complete execution context for a scenario run
  * Contains all state needed to execute and track a scenario
  */
@@ -156,6 +173,8 @@ export interface ExecutionContext {
   responses: Record<string, unknown>;
   /** Stack of loop contexts for nested loop support */
   loopContextStack: LoopContext[];
+  /** Real-time stack of active loops for visualization (updated during execution) */
+  activeLoopStack: LoopIterationSnapshot[];
 
   // Logs
   /** Chronological log of execution events */

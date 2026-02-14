@@ -10,6 +10,7 @@ import type {
   StepExecutionResult,
   ExecutionLog,
   LoopContext,
+  LoopIterationSnapshot,
   ExecutionMode,
 } from '@/types';
 import type { ScenarioExecutor } from '@/engine';
@@ -50,6 +51,7 @@ const executionSlice = createSlice({
         stepResults: {},
         responses: {},
         loopContextStack: [],
+        activeLoopStack: [],
         logs: [],
         startedAt: new Date().toISOString(),
       };
@@ -175,6 +177,39 @@ const executionSlice = createSlice({
       }
     },
 
+    // Loop iteration visualization
+    enterLoop: (state, action: PayloadAction<LoopIterationSnapshot>) => {
+      if (state.context) {
+        state.context.activeLoopStack.push(action.payload);
+      }
+    },
+
+    updateLoopIteration: (
+      state,
+      action: PayloadAction<{ stepId: string; currentIteration: number }>
+    ) => {
+      if (state.context) {
+        const loopIndex = state.context.activeLoopStack.findIndex(
+          loop => loop.stepId === action.payload.stepId
+        );
+        if (loopIndex !== -1) {
+          state.context.activeLoopStack[loopIndex].currentIteration =
+            action.payload.currentIteration;
+        }
+      }
+    },
+
+    exitLoop: (state, action: PayloadAction<string>) => {
+      if (state.context) {
+        const loopIndex = state.context.activeLoopStack.findIndex(
+          loop => loop.stepId === action.payload
+        );
+        if (loopIndex !== -1) {
+          state.context.activeLoopStack.splice(loopIndex, 1);
+        }
+      }
+    },
+
     // Logging
     addLog: (
       state,
@@ -232,6 +267,9 @@ export const {
   pushLoopContext,
   popLoopContext,
   updateLoopContext,
+  enterLoop,
+  updateLoopIteration,
+  exitLoop,
   addLog,
   clearLogs,
   clearHistory,

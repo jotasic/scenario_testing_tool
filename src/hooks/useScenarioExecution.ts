@@ -26,6 +26,9 @@ import {
   setExecutor,
   clearExecutor,
   selectExecutor,
+  enterLoop,
+  updateLoopIteration,
+  exitLoop,
 } from '@/store/executionSlice';
 import type { ExecutionMode, StepExecutionResult, ExecutionLog } from '@/types';
 
@@ -105,6 +108,18 @@ export function useScenarioExecution() {
         } else if (status === 'cancelled') {
           dispatch(stopExecution('cancelled'));
         }
+      },
+
+      onEnterLoop: (snapshot) => {
+        dispatch(enterLoop(snapshot));
+      },
+
+      onUpdateLoopIteration: (stepId, currentIteration) => {
+        dispatch(updateLoopIteration({ stepId, currentIteration }));
+      },
+
+      onExitLoop: (stepId) => {
+        dispatch(exitLoop(stepId));
       },
     };
   }, [dispatch, currentScenario]);
