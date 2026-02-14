@@ -168,6 +168,49 @@ const scenariosSlice = createSlice({
     },
 
     // Edge operations
+    /**
+     * Adds a flow edge and syncs it to step properties (DUAL SOURCE OF TRUTH)
+     *
+     * IMPORTANT: This reducer is part of a bidirectional sync pattern that maintains
+     * flow topology in TWO places simultaneously:
+     *
+     * 1. scenario.edges[] - React Flow's internal data structure for visualization
+     *    Example: { id: 'edge_1', sourceStepId: 'step_1', targetStepId: 'step_2', sourceHandle: 'branch_abc' }
+     *
+     * 2. Step branch/container references - Execution engine's data structure
+     *    - For condition/request branches: branch.nextStepId = targetStepId
+     *    - For loops/groups: step.stepIds array contains targetStepId
+     *
+     * WHY TWO REPRESENTATIONS?
+     * - React Flow needs edges in scenario.edges to render connections
+     * - Execution engine (scenarioExecutor.ts:783,787,794,798) uses branch.nextStepId
+     *   to determine control flow, because it's more convenient for sequential logic
+     * - Separating concerns would require refactoring the execution engine
+     *
+     * SYNC LOGIC:
+     * - When edge is added: Update corresponding step property (branch.nextStepId or stepIds)
+     * - When edge is deleted: Clear corresponding step property
+     * - When step property changes directly: Caller must manually update edge
+     *
+     * HANDLE TYPES:
+     * - "branch_XYZ" (startsWith "branch_"): Condition or request step branch
+     * - "loop-body": Loop step body
+     * - "group-body": Group step body
+     *
+     * RISKS:
+     * - If sync is incomplete, edge and step can diverge (inconsistent state)
+     * - Execution engine won't find the target step if branch.nextStepId is missing
+     * - React Flow won't render connection if edge is missing
+     *
+     * MIGRATION PATH:
+     * See TECHNICAL_DEBT.md for full details on normalization strategy.
+     * Target: Store edges only in scenario.edges, derive branch.nextStepId at runtime.
+     *
+     * @see deleteEdge - Complementary cleanup operation
+     * @see scenariosSlice.ts:232-271 - deleteEdge reducer (cleanup logic)
+     * @see scenarioExecutor.ts:783-798 - Where branch.nextStepId is used
+     * @see TECHNICAL_DEBT.md - Full analysis and migration path
+     */
     addEdge: (state, action: PayloadAction<{ scenarioId: string; edge: ScenarioEdge }>) => {
       const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
       if (scenario) {
@@ -229,6 +272,40 @@ const scenariosSlice = createSlice({
       }
     },
 
+    /**
+     * Removes a flow edge and clears corresponding step properties (DUAL SOURCE OF TRUTH CLEANUP)
+     *
+     * This is the complementary operation to addEdge (line 216), maintaining bidirectional sync.
+     *
+     * SYNC CLEANUP:
+     * When an edge is deleted, we must clear the corresponding step property:
+     * - For branches: Set branch.nextStepId to empty string ''
+     * - For loop/group: Remove targetStepId from step.stepIds array
+     *
+     * EXECUTION SAFETY:
+     * If this cleanup is skipped, the execution engine may try to navigate to a deleted step.
+     * Example failure scenario:
+     *   1. Edge {id: 'e1', sourceHandle: 'branch_xyz', targetStepId: 'step_2'} exists
+     *   2. Branch 'branch_xyz' has nextStepId = 'step_2'
+     *   3. Edge is deleted WITHOUT clearing branch.nextStepId
+     *   4. During execution, engine evaluates branch and tries to jump to step_2
+     *   5. Result: Execution error or unexpected behavior
+     *
+     * RENDER SAFETY:
+     * React Flow won't render the edge anyway (we removed it from scenario.edges),
+     * but the dangling reference can cause issues if the target step is later deleted.
+     *
+     * ORDER MATTERS:
+     * 1. Find edge (line 280)
+     * 2. Clear step properties using edge data (lines 282-297)
+     * 3. Remove edge from scenario.edges (line 298)
+     * If order is reversed, we lose the edge data needed for cleanup!
+     *
+     * @see addEdge - Complementary add operation (syncs in opposite direction)
+     * @see deleteStep:117-127 - Also clears branch references when step is deleted
+     * @see scenarioExecutor.ts:783,787,794,798 - Where branch.nextStepId is used
+     * @see TECHNICAL_DEBT.md - Full analysis of dual sync complexity
+     */
     deleteEdge: (state, action: PayloadAction<{ scenarioId: string; edgeId: string }>) => {
       const scenario = state.scenarios.find(s => s.id === action.payload.scenarioId);
       if (scenario) {
