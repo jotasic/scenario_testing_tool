@@ -31,6 +31,7 @@ API 시나리오 테스트 도구입니다. 복잡한 API 테스트 시나리오
 - 응답 데이터 검증 및 확인
 - 상세한 실행 로그
 - 실행 결과 저장 및 분석
+- **[Loop Visualization](./docs/features/loop-visualization.md)**: 루프 실행의 실시간 시각화 및 모니터링
 
 ## 기술 스택
 
