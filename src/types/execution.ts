@@ -119,6 +119,10 @@ export interface LoopContext {
   currentItem?: unknown;
   /** Total number of iterations for this loop */
   totalIterations: number;
+  /** Custom alias for the current item (e.g., "user", "shipment") - defaults to "item" */
+  itemAlias?: string;
+  /** Custom alias for the index (e.g., "idx", "i") - defaults to "index" */
+  indexAlias?: string;
 }
 
 /**

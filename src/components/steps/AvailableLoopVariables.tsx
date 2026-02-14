@@ -22,7 +22,10 @@ import type { Step, LoopStep, ForEachLoop, CountLoop } from '@/types';
 
 interface LoopContext {
   loopStepId: string;
-  loopName: string;
+  /** Display name for UI (can be Korean) */
+  displayName: string;
+  /** Variable name for code references (English identifier) */
+  variableName: string;
   loopType: 'forEach' | 'count' | 'while';
   variables: {
     name: string;
@@ -59,6 +62,7 @@ export function AvailableLoopVariables({ currentStepId, allSteps }: AvailableLoo
       if (parentLoop) {
         const loopConfig = parentLoop.loop;
         const variables: LoopContext['variables'] = [];
+        const varName = parentLoop.variableName;
 
         // Generate variables based on loop type
         if (loopConfig.type === 'forEach') {
@@ -68,28 +72,28 @@ export function AvailableLoopVariables({ currentStepId, allSteps }: AvailableLoo
 
           // Index variable
           variables.push({
-            name: `\${loops.${parentLoop.name}.${indexAlias}}`,
+            name: `\${loops.${varName}.${indexAlias}}`,
             description: 'Current iteration index (0-based)',
             example: '0, 1, 2, ...',
           });
 
           // Item variable
           variables.push({
-            name: `\${loops.${parentLoop.name}.${itemAlias}}`,
+            name: `\${loops.${varName}.${itemAlias}}`,
             description: 'Current item from the array',
             example: 'The whole item object or value',
           });
 
           // Item field access (for object arrays)
           variables.push({
-            name: `\${loops.${parentLoop.name}.${itemAlias}.fieldName}`,
+            name: `\${loops.${varName}.${itemAlias}.fieldName}`,
             description: 'Access a specific field of the current item',
-            example: `\${loops.${parentLoop.name}.${itemAlias}.id}`,
+            example: `\${loops.${varName}.${itemAlias}.id}`,
           });
 
           // Total count
           variables.push({
-            name: `\${loops.${parentLoop.name}.total}`,
+            name: `\${loops.${varName}.total}`,
             description: 'Total number of iterations',
             example: 'Total array length',
           });
@@ -97,9 +101,9 @@ export function AvailableLoopVariables({ currentStepId, allSteps }: AvailableLoo
           // CountField support
           if (forEachConfig.countField) {
             variables.push({
-              name: `\${loops.${parentLoop.name}.${itemAlias}.${forEachConfig.countField}}`,
+              name: `\${loops.${varName}.${itemAlias}.${forEachConfig.countField}}`,
               description: `Count field used for nested iteration`,
-              example: `\${loops.${parentLoop.name}.${itemAlias}.${forEachConfig.countField}}`,
+              example: `\${loops.${varName}.${itemAlias}.${forEachConfig.countField}}`,
             });
           }
         } else if (loopConfig.type === 'count') {
@@ -107,14 +111,14 @@ export function AvailableLoopVariables({ currentStepId, allSteps }: AvailableLoo
 
           // Index variable
           variables.push({
-            name: `\${loops.${parentLoop.name}.index}`,
+            name: `\${loops.${varName}.index}`,
             description: 'Current iteration index (0-based)',
             example: '0, 1, 2, ...',
           });
 
           // Total count
           variables.push({
-            name: `\${loops.${parentLoop.name}.total}`,
+            name: `\${loops.${varName}.total}`,
             description: 'Total number of iterations',
             example: typeof countConfig.count === 'number'
               ? countConfig.count.toString()
@@ -123,16 +127,19 @@ export function AvailableLoopVariables({ currentStepId, allSteps }: AvailableLoo
         } else if (loopConfig.type === 'while') {
           // While loops don't have predefined iteration variables
           variables.push({
-            name: `\${loops.${parentLoop.name}.index}`,
+            name: `\${loops.${varName}.index}`,
             description: 'Current iteration index (0-based)',
             example: '0, 1, 2, ...',
           });
         }
 
         // Add this context to the beginning (outer loops first)
+        // Display name: show name if set, otherwise variableName
+        const displayName = parentLoop.name || varName;
         contexts.unshift({
           loopStepId: parentLoop.id,
-          loopName: parentLoop.name,
+          displayName,
+          variableName: varName,
           loopType: loopConfig.type,
           variables,
           depth,
@@ -240,11 +247,17 @@ export function AvailableLoopVariables({ currentStepId, allSteps }: AvailableLoo
                   pb: 1,
                   borderBottom: '1px solid',
                   borderColor: 'divider',
+                  flexWrap: 'wrap',
                 }}
               >
                 <Typography variant="subtitle2" fontWeight={600}>
-                  {context.loopName}
+                  {context.displayName}
                 </Typography>
+                {context.displayName !== context.variableName && (
+                  <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                    ({context.variableName})
+                  </Typography>
+                )}
                 <Chip
                   label={context.loopType.toUpperCase()}
                   size="small"

@@ -202,6 +202,7 @@ export const sampleScenario: Scenario = {
         maxIterations: 20,
       },
       stepIds: ['step_loop_request'],
+      variableName: 'itemLoop',
     },
 
     // Step 5: Request inside loop

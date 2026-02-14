@@ -107,6 +107,19 @@ export function resolveVariablePath(
         const itemFieldPath = parentPath.substring('item.'.length);
         return get(parentLoop.currentItem, itemFieldPath);
       }
+      // Check custom aliases for parent loop
+      if (parentLoop.indexAlias && parentPath === parentLoop.indexAlias) {
+        return parentLoop.currentIndex;
+      }
+      if (parentLoop.itemAlias) {
+        if (parentPath === parentLoop.itemAlias) {
+          return parentLoop.currentItem;
+        }
+        if (parentPath.startsWith(parentLoop.itemAlias + '.')) {
+          const itemFieldPath = parentPath.substring(parentLoop.itemAlias.length + 1);
+          return get(parentLoop.currentItem, itemFieldPath);
+        }
+      }
       return undefined;
     }
 
@@ -137,6 +150,20 @@ export function resolveVariablePath(
       return get(currentLoop.currentItem, itemFieldPath);
     }
 
+    // Check custom aliases for current loop
+    if (currentLoop.indexAlias && loopPath === currentLoop.indexAlias) {
+      return currentLoop.currentIndex;
+    }
+    if (currentLoop.itemAlias) {
+      if (loopPath === currentLoop.itemAlias) {
+        return currentLoop.currentItem;
+      }
+      if (loopPath.startsWith(currentLoop.itemAlias + '.')) {
+        const itemFieldPath = loopPath.substring(currentLoop.itemAlias.length + 1);
+        return get(currentLoop.currentItem, itemFieldPath);
+      }
+    }
+
     return undefined;
   }
 
@@ -159,6 +186,7 @@ export function resolveVariablePath(
       return undefined;
     }
 
+    // Check standard fields
     if (fieldPath === 'index') {
       return namedLoop.currentIndex;
     }
@@ -171,6 +199,22 @@ export function resolveVariablePath(
     if (fieldPath.startsWith('item.')) {
       const itemFieldPath = fieldPath.substring('item.'.length);
       return get(namedLoop.currentItem, itemFieldPath);
+    }
+
+    // Check custom index alias (e.g., ${loops.UserLoop.idx})
+    if (namedLoop.indexAlias && fieldPath === namedLoop.indexAlias) {
+      return namedLoop.currentIndex;
+    }
+
+    // Check custom item alias (e.g., ${loops.UserLoop.user} or ${loops.UserLoop.user.id})
+    if (namedLoop.itemAlias) {
+      if (fieldPath === namedLoop.itemAlias) {
+        return namedLoop.currentItem;
+      }
+      if (fieldPath.startsWith(namedLoop.itemAlias + '.')) {
+        const itemFieldPath = fieldPath.substring(namedLoop.itemAlias.length + 1);
+        return get(namedLoop.currentItem, itemFieldPath);
+      }
     }
 
     return undefined;

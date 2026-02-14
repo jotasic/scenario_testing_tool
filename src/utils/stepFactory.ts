@@ -49,6 +49,7 @@ export function createDefaultStep(type: StepType, position: { x: number; y: numb
           count: 1,
         },
         stepIds: [],
+        variableName: `loop_${Date.now()}`,
       };
 
     case 'group':

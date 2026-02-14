@@ -105,6 +105,7 @@ export function StepList() {
             count: 1,
           },
           stepIds: [],
+          variableName: `loop_${Date.now()}`,
         };
         break;
       case 'group':

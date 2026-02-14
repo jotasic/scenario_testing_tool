@@ -119,6 +119,8 @@ export interface LoopStep extends BaseStep {
   loop: Loop;
   /** IDs of steps to execute in each iteration */
   stepIds: string[];
+  /** Variable name for referencing this loop (e.g., "userLoop" for ${loops.userLoop.*}) */
+  variableName: string;
 }
 
 /**

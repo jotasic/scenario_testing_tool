@@ -227,6 +227,7 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
             count: 1,
           },
           stepIds: [],
+          variableName: `loop${timestamp}`,
         } as LoopStepType;
       } else {
         newStep = {
@@ -262,6 +263,28 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
           allSteps={scenario.steps}
         />
       )}
+
+      {/* Variable Name for Loop Reference */}
+      <TextField
+        label="Variable Name"
+        value={step.variableName || ''}
+        onChange={(e) => {
+          // Only allow valid identifier characters (a-z, A-Z, 0-9, _)
+          const value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+          onChange({ variableName: value });
+        }}
+        placeholder="userLoop"
+        helperText={
+          step.variableName
+            ? `Access via: \${loops.${step.variableName}.item}, \${loops.${step.variableName}.index}`
+            : 'Required: Identifier for variable references (e.g., userLoop, shipmentLoop)'
+        }
+        error={!step.variableName}
+        fullWidth
+        inputProps={{
+          pattern: '[a-zA-Z_][a-zA-Z0-9_]*',
+        }}
+      />
 
       {/* Loop Type Selection */}
       <FormControl fullWidth>

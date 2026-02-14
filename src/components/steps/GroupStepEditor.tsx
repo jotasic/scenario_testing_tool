@@ -202,6 +202,7 @@ export function GroupStepEditor({ step, allSteps, onChange }: GroupStepEditorPro
             count: 1,
           },
           stepIds: [],
+          variableName: `loop_${timestamp}`,
         } as LoopStep;
       } else {
         newStep = {

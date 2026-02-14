@@ -58,10 +58,24 @@ function resolveForEachSource(
   // Resolve the source path (e.g., "${params.list}")
   const resolvedSource = resolveVariables(loop.source, context);
 
+  if (resolvedSource === undefined || resolvedSource === null) {
+    // Check if this might be a timing issue with fire-and-forget requests
+    const sourcePattern = loop.source;
+    const isResponseReference = sourcePattern.includes('responses.') || sourcePattern.includes('response.');
+
+    throw new Error(
+      `ForEach loop source "${loop.source}" resolved to ${resolvedSource}.\n` +
+      (isResponseReference
+        ? `This may be a timing issue: the referenced step might have "Wait for Response" disabled (fire-and-forget).\n` +
+          `Solution: Enable "Wait for Response" and "Save Response" on the step that provides this data.`
+        : `Make sure the source path exists and contains an array.`)
+    );
+  }
+
   if (!Array.isArray(resolvedSource)) {
     throw new Error(
       `ForEach loop source "${loop.source}" did not resolve to an array. ` +
-      `Got: ${typeof resolvedSource}`
+      `Got: ${typeof resolvedSource} (${JSON.stringify(resolvedSource).slice(0, 100)})`
     );
   }
 
@@ -144,6 +158,8 @@ function createForEachIterator(
         currentIndex,
         currentItem: items[currentIndex],
         totalIterations,
+        itemAlias: loop.itemAlias,
+        indexAlias: loop.indexAlias,
       };
 
       currentIndex++;
