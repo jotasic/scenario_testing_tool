@@ -456,7 +456,7 @@ function FlowCanvasInner({
       setDraggingNodeId(null);
       setDragOverContainerId(null);
     },
-    [nodes, onDropOnContainer, readonly, scenario.steps, dragOverContainerId]
+    [nodes, onDropOnContainer, readonly, scenario.steps]
   );
 
   // Handle node double click (for container navigation)
@@ -471,7 +471,7 @@ function FlowCanvasInner({
 
   // Handle edge click - deselect all nodes to prevent accidental deletion
   const handleEdgeClick = useCallback(
-    (_event: React.MouseEvent, _edge: Edge) => {
+    () => {
       // Notify parent to clear selectedStepId
       if (externalEdgeClick) {
         externalEdgeClick();

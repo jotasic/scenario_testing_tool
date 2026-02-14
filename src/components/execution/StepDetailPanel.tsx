@@ -626,7 +626,7 @@ export function StepDetailPanel({ step, stepResult, scenario, onClose }: StepDet
                 {getStatusIcon(stepResult.status)}
                 <Chip
                   label={stepResult.status}
-                  color={getStatusColor(stepResult.status) as any}
+                  color={getStatusColor(stepResult.status) as 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
                   size="small"
                 />
               </Stack>

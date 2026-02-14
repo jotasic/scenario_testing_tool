@@ -397,7 +397,7 @@ export function updateWhileLoopCondition(
     const maxIterations = loop.maxIterations ?? DEFAULT_MAX_ITERATIONS;
 
     iterator.hasNext = conditionMet && iterator.currentIndex < maxIterations;
-  } catch (error) {
+  } catch {
     // If condition evaluation fails, stop the loop
     iterator.hasNext = false;
   }

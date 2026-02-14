@@ -3,7 +3,7 @@
  * Displays a list of steps in the current scenario with add/delete/select actions
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   List,
   ListItem,
@@ -61,10 +61,12 @@ export function StepList() {
     setAddMenuAnchor(null);
   };
 
-  const handleAddStep = (type: StepType) => {
+  const handleAddStep = useCallback((type: StepType) => {
     if (!scenario) return;
 
-    const stepId = `step_${Date.now()}`;
+    // Generate unique IDs using crypto.randomUUID for purity
+    const uniqueId = crypto.randomUUID().slice(0, 8);
+    const stepId = `step_${uniqueId}`;
     const baseStep = {
       id: stepId,
       name: `New ${STEP_TYPE_CONFIG[type].label}`,
@@ -95,19 +97,21 @@ export function StepList() {
           branches: [],
         };
         break;
-      case 'loop':
+      case 'loop': {
+        const loopUniqueId = crypto.randomUUID().slice(0, 8);
         newStep = {
           ...baseStep,
           type: 'loop',
           loop: {
-            id: `loop_${Date.now()}`,
+            id: `loop_${loopUniqueId}`,
             type: 'count',
             count: 1,
           },
           stepIds: [],
-          variableName: `loop_${Date.now()}`,
+          variableName: `loop_${loopUniqueId}`,
         };
         break;
+      }
       case 'group':
         newStep = {
           ...baseStep,
@@ -120,7 +124,7 @@ export function StepList() {
     dispatch(addStep({ scenarioId: scenario.id, step: newStep }));
     dispatch(setSelectedStep(stepId));
     handleAddMenuClose();
-  };
+  }, [scenario, steps.length, dispatch]);
 
   const handleSelectStep = (stepId: string) => {
     dispatch(setSelectedStep(stepId));

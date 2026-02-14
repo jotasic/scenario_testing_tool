@@ -123,11 +123,9 @@ function compareValues(
 ): boolean {
   switch (operator) {
     case '==':
-      // eslint-disable-next-line eqeqeq
       return actualValue == expectedValue;
 
     case '!=':
-      // eslint-disable-next-line eqeqeq
       return actualValue != expectedValue;
 
     case '>':

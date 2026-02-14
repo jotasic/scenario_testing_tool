@@ -3,6 +3,7 @@
  * Compact toolbar with execution status and start/pause/stop/reset controls
  */
 
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -54,6 +55,7 @@ export function ExecutionControls({ params: externalParams }: ExecutionControlsP
   const status = useExecutionStatus();
   const scenario = useCurrentScenario();
   const stats = useExecutionStatistics();
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const {
     executeScenario,
@@ -61,6 +63,23 @@ export function ExecutionControls({ params: externalParams }: ExecutionControlsP
     resumeExecution: resume,
     stopExecution: stop,
   } = useScenarioExecution();
+
+  // Update elapsed time every second when running
+  useEffect(() => {
+    const startedAt = context?.startedAt;
+    if (!startedAt || status === 'completed' || status === 'failed' || status === 'cancelled') {
+      return;
+    }
+
+    const updateElapsed = () => {
+      const elapsed = Math.round((Date.now() - new Date(startedAt).getTime()) / 1000);
+      setElapsedSeconds(elapsed);
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [context?.startedAt, status]);
 
   const handleStart = () => {
     if (!scenario) return;
@@ -121,7 +140,7 @@ export function ExecutionControls({ params: externalParams }: ExecutionControlsP
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
             {isCompleted && context.completedAt
               ? `${Math.round(stats.duration / 1000)}s`
-              : `${Math.round((Date.now() - new Date(context.startedAt).getTime()) / 1000)}s`}
+              : `${elapsedSeconds}s`}
           </Typography>
         )}
 

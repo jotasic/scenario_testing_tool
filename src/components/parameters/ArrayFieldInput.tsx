@@ -36,7 +36,6 @@ export const ArrayFieldInput: React.FC<ArrayFieldInputProps> = ({
   itemSchema,
   value,
   onChange,
-  name: _name,
 }) => {
   const handleAddItem = () => {
     const defaultValue = getDefaultValue(itemSchema);

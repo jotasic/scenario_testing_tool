@@ -69,16 +69,22 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
       }
     });
 
-    setFormValues(defaultValues);
-    setJsonValue(JSON.stringify(defaultValues, null, 2));
+    // Use queueMicrotask to avoid synchronous setState in effect
+    queueMicrotask(() => {
+      setFormValues(defaultValues);
+      setJsonValue(JSON.stringify(defaultValues, null, 2));
+    });
     isInitialized.current = true;
   }, [schemas, initialValues]);
 
   // Sync form to JSON when switching modes or when form changes (but not while editing JSON)
   useEffect(() => {
     if (mode === 'json' && !isJsonEditing) {
-      setJsonValue(JSON.stringify(formValues, null, 2));
-      setJsonError(null);
+      // Use queueMicrotask to avoid synchronous setState in effect
+      queueMicrotask(() => {
+        setJsonValue(JSON.stringify(formValues, null, 2));
+        setJsonError(null);
+      });
     }
   }, [mode, formValues, isJsonEditing]);
 

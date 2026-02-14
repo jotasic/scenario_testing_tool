@@ -38,13 +38,16 @@ export function ServerEditor({ server }: ServerEditorProps) {
   // Load server data when selected
   useEffect(() => {
     if (server) {
-      setName(server.name);
-      setBaseUrl(server.baseUrl);
-      setTimeoutValue(String(server.timeout));
-      setDescription(server.description || '');
-      setHeaders(server.headers);
-      setErrors({});
-      setSuccessMessage('');
+      // Use queueMicrotask to avoid synchronous setState in effect
+      queueMicrotask(() => {
+        setName(server.name);
+        setBaseUrl(server.baseUrl);
+        setTimeoutValue(String(server.timeout));
+        setDescription(server.description || '');
+        setHeaders(server.headers);
+        setErrors({});
+        setSuccessMessage('');
+      });
     }
   }, [server]);
 

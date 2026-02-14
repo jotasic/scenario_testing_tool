@@ -49,7 +49,7 @@ export function BranchEditor({ branches, onChange }: BranchEditorProps) {
     onChange(newBranches);
   };
 
-  const handleBranchChange = (index: number, field: keyof Branch, value: any) => {
+  const handleBranchChange = (index: number, field: keyof Branch, value: Branch[keyof Branch]) => {
     const newBranches = [...branches];
     newBranches[index] = { ...newBranches[index], [field]: value };
     onChange(newBranches);

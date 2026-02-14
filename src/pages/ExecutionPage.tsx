@@ -45,7 +45,10 @@ export function ExecutionPage() {
   // Show manual step dialog when execution is paused and current step is waiting
   useEffect(() => {
     if (executionStatus === 'paused' && currentStepResult?.status === 'waiting') {
-      setManualDialogOpen(true);
+      // Use queueMicrotask to avoid synchronous setState in effect
+      queueMicrotask(() => {
+        setManualDialogOpen(true);
+      });
     }
   }, [executionStatus, currentStepResult?.status]);
 
@@ -68,7 +71,10 @@ export function ExecutionPage() {
         initialParams[schema.name] = schema.defaultValue;
       }
     });
-    setParams(initialParams);
+    // Use queueMicrotask to avoid synchronous setState in effect
+    queueMicrotask(() => {
+      setParams(initialParams);
+    });
   }, [currentScenario?.id, currentScenario?.parameterSchema]);
 
   const handleAutoLayout = useCallback(

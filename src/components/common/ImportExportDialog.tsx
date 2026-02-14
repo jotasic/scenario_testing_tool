@@ -3,7 +3,7 @@
  * Provides UI for importing and exporting scenarios and data
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -61,19 +61,15 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
   const { exportScenario, exportAll, isExporting, error: exportError } = useExport();
   const { importScenario, importAll, isImporting, error: importError } = useImport();
 
-  /**
-   * Reset to import tab when dialog opens
-   * This ensures users see the import tab first when clicking Load
-   */
-  useEffect(() => {
-    if (open) {
-      setActiveTab('import');
-      setSuccessMessage('');
-      setErrorMessage('');
-      setSelectedFile(null);
-      setShowPreview(false);
-    }
-  }, [open]);
+  // Reset state when dialog closes
+  const handleClose = useCallback(() => {
+    setActiveTab('import');
+    setSuccessMessage('');
+    setErrorMessage('');
+    setSelectedFile(null);
+    setShowPreview(false);
+    onClose();
+  }, [onClose]);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: TabValue) => {
     setActiveTab(newValue);
@@ -123,7 +119,7 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
           );
           setSelectedFile(null);
           setShowPreview(false);
-          setTimeout(() => onClose(), 2000);
+          setTimeout(handleClose, 2000);
         } else {
           setErrorMessage(result.error || 'Import failed');
         }
@@ -134,7 +130,7 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
           setSuccessMessage(`Successfully imported scenario: ${result.scenario?.name}`);
           setSelectedFile(null);
           setShowPreview(false);
-          setTimeout(() => onClose(), 2000);
+          setTimeout(handleClose, 2000);
         } else {
           setErrorMessage(result.error || 'Import failed');
         }
@@ -142,7 +138,7 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Import failed');
     }
-  }, [selectedFile, exportScope, importAll, importScenario, onClose]);
+  }, [selectedFile, exportScope, importAll, importScenario, handleClose]);
 
   const handleExport = useCallback(async () => {
     setSuccessMessage('');
@@ -172,14 +168,6 @@ export function ImportExportDialog({ open, onClose }: ImportExportDialogProps) {
       setErrorMessage(err instanceof Error ? err.message : 'Export failed');
     }
   }, [exportScope, exportFormat, currentScenario, exportAll, exportScenario]);
-
-  const handleClose = () => {
-    setSelectedFile(null);
-    setShowPreview(false);
-    setSuccessMessage('');
-    setErrorMessage('');
-    onClose();
-  };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>

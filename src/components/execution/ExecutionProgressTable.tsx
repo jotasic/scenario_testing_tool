@@ -154,7 +154,8 @@ export function ExecutionProgressTable({
   onStepClick,
 }: ExecutionProgressTableProps) {
   // Track current time for real-time duration updates
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  // Use lazy initializer to avoid impure Date.now() call during render
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   // Update current time every 100ms for running steps
   useEffect(() => {

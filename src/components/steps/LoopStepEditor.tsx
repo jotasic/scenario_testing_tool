@@ -26,7 +26,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
-import type { LoopStep, LoopType, ForEachLoop, CountLoop, WhileLoop, Step, RequestStep, ConditionStep, LoopStep as LoopStepType, GroupStep } from '@/types';
+import type { LoopStep, LoopType, ForEachLoop, CountLoop, WhileLoop, Step, RequestStep, ConditionStep, LoopStep as LoopStepType, GroupStep, ConditionExpression } from '@/types';
 import { useCurrentSteps, useCurrentScenario, useAppDispatch } from '@/store/hooks';
 import { addStep } from '@/store/scenariosSlice';
 import { ConditionBuilder } from './ConditionBuilder';
@@ -116,7 +116,10 @@ export function LoopStepEditor({ step, onChange }: LoopStepEditorProps) {
     onChange({ loop: newLoop });
   };
 
-  const handleLoopChange = (field: string, value: any) => {
+  const handleLoopChange = (
+    field: string,
+    value: string | number | boolean | ConditionExpression | undefined
+  ) => {
     onChange({
       loop: {
         ...step.loop,

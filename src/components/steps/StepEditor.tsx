@@ -45,6 +45,44 @@ export function StepEditor() {
   const scenario = useCurrentScenario();
   const step = useSelectedStep();
 
+  // All hooks must be called before any conditional returns
+  // Find the current next step from edges (default edge, not branch edges)
+  const currentNextStep = useMemo(() => {
+    if (!scenario || !step) return '';
+    const defaultEdge = scenario.edges.find(
+      (e) => e.sourceStepId === step.id && !e.sourceHandle?.startsWith('branch_')
+    );
+    return defaultEdge?.targetStepId || '';
+  }, [scenario, step]);
+
+  // Get other steps (excluding current step) for next step selection
+  const otherSteps = useMemo(() => {
+    if (!scenario || !step) return [];
+    return scenario.steps.filter((s) => s.id !== step.id);
+  }, [scenario, step]);
+
+  // Find which container (Loop/Group) this step is inside, if any
+  const parentContainer = useMemo(() => {
+    if (!scenario || !step) return undefined;
+    return scenario.steps.find(
+      (s) =>
+        (s.type === 'loop' || s.type === 'group') &&
+        (s as LoopStep | GroupStep).stepIds.includes(step.id)
+    ) as (LoopStep | GroupStep) | undefined;
+  }, [scenario, step]);
+
+  // Get available containers (Loop/Group) that this step can be moved into
+  const availableContainers = useMemo(() => {
+    if (!scenario || !step) return [];
+    return scenario.steps.filter(
+      (s) =>
+        (s.type === 'loop' || s.type === 'group') &&
+        s.id !== step.id &&
+        !(s as LoopStep | GroupStep).stepIds.includes(step.id)
+    ) as (LoopStep | GroupStep)[];
+  }, [scenario, step]);
+
+  // Now the early return can happen after all hooks
   if (!scenario || !step) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -55,7 +93,7 @@ export function StepEditor() {
     );
   }
 
-  const handleCommonChange = (field: keyof Step, value: any) => {
+  const handleCommonChange = (field: keyof Step, value: Step[keyof Step]) => {
     dispatch(
       updateStep({
         scenarioId: scenario.id,
@@ -74,38 +112,6 @@ export function StepEditor() {
       })
     );
   };
-
-  // Find the current next step from edges (default edge, not branch edges)
-  const currentNextStep = useMemo(() => {
-    const defaultEdge = scenario.edges.find(
-      (e) => e.sourceStepId === step.id && !e.sourceHandle?.startsWith('branch_')
-    );
-    return defaultEdge?.targetStepId || '';
-  }, [scenario.edges, step.id]);
-
-  // Get other steps (excluding current step) for next step selection
-  const otherSteps = useMemo(() => {
-    return scenario.steps.filter((s) => s.id !== step.id);
-  }, [scenario.steps, step.id]);
-
-  // Find which container (Loop/Group) this step is inside, if any
-  const parentContainer = useMemo(() => {
-    return scenario.steps.find(
-      (s) =>
-        (s.type === 'loop' || s.type === 'group') &&
-        (s as LoopStep | GroupStep).stepIds.includes(step.id)
-    ) as (LoopStep | GroupStep) | undefined;
-  }, [scenario.steps, step.id]);
-
-  // Get available containers (Loop/Group) that this step can be moved into
-  const availableContainers = useMemo(() => {
-    return scenario.steps.filter(
-      (s) =>
-        (s.type === 'loop' || s.type === 'group') &&
-        s.id !== step.id &&
-        !(s as LoopStep | GroupStep).stepIds.includes(step.id)
-    ) as (LoopStep | GroupStep)[];
-  }, [scenario.steps, step.id]);
 
   // Handle next step change - creates or updates edge
   const handleNextStepChange = (nextStepId: string) => {

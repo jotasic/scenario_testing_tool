@@ -3,12 +3,38 @@
  * Visual progress indicator for scenario execution
  */
 
+import { useState, useEffect } from 'react';
 import { Box, LinearProgress, Stack, Typography, Paper } from '@mui/material';
 import { useExecutionContext, useExecutionStatistics } from '@/store/hooks';
 
 export function ExecutionProgress() {
   const context = useExecutionContext();
   const stats = useExecutionStatistics();
+  const [elapsed, setElapsed] = useState(0);
+
+  // Update elapsed time - runs once immediately then every second
+  useEffect(() => {
+    const startedAt = context?.startedAt;
+    const contextStatus = context?.status;
+    if (!startedAt) {
+      return;
+    }
+
+    // Calculate and set elapsed time
+    const updateElapsed = () => {
+      const ms = Date.now() - new Date(startedAt).getTime();
+      setElapsed(ms);
+    };
+
+    // Schedule immediate update via microtask to avoid sync setState in effect
+    queueMicrotask(updateElapsed);
+
+    // Only continue updating if running or paused
+    if (contextStatus === 'running' || contextStatus === 'paused') {
+      const interval = setInterval(updateElapsed, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [context?.startedAt, context?.status]);
 
   if (!context) {
     return null;
@@ -30,10 +56,6 @@ export function ExecutionProgress() {
     }
     return `${seconds}s`;
   };
-
-  const elapsed = context.startedAt
-    ? Date.now() - new Date(context.startedAt).getTime()
-    : 0;
 
   // Simple estimation: assume remaining steps will take the same avg time
   const avgTimePerStep =

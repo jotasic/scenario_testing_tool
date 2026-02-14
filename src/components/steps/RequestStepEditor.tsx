@@ -50,13 +50,16 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
   // Sync body from external changes when not editing
   useEffect(() => {
     if (!isBodyEditing) {
-      setBodyLocalValue(
-        typeof step.body === 'string' ? step.body : JSON.stringify(step.body, null, 2)
-      );
+      // Use queueMicrotask to avoid synchronous setState in effect
+      queueMicrotask(() => {
+        setBodyLocalValue(
+          typeof step.body === 'string' ? step.body : JSON.stringify(step.body, null, 2)
+        );
+      });
     }
   }, [step.body, isBodyEditing]);
 
-  const handleHeaderChange = (index: number, field: keyof StepHeader, value: any) => {
+  const handleHeaderChange = (index: number, field: keyof StepHeader, value: StepHeader[keyof StepHeader]) => {
     const newHeaders = [...step.headers];
     newHeaders[index] = { ...newHeaders[index], [field]: value };
     onChange({ headers: newHeaders });
@@ -77,7 +80,7 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
     onChange({ headers: newHeaders });
   };
 
-  const handleRetryConfigChange = (field: string, value: any) => {
+  const handleRetryConfigChange = (field: string, value: number | number[]) => {
     onChange({
       retryConfig: {
         maxRetries: step.retryConfig?.maxRetries ?? 3,

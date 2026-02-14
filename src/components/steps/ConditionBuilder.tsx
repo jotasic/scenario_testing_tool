@@ -31,6 +31,7 @@ import type {
   ConditionSource,
   ComparisonOperator,
   LogicalOperator,
+  RequestStep,
 } from '@/types';
 import { useCurrentSteps } from '@/store/hooks';
 
@@ -243,13 +244,13 @@ interface ConditionEditorProps {
   onChange: (value: Condition) => void;
   onDelete: () => void;
   depth: number;
-  requestSteps: any[];
+  requestSteps: RequestStep[];
 }
 
 function ConditionEditor({ value, onChange, onDelete, depth, requestSteps }: ConditionEditorProps) {
   const needsValue = !['isEmpty', 'isNotEmpty', 'exists'].includes(value.operator);
 
-  const handleChange = (field: string, fieldValue: any) => {
+  const handleChange = (field: string, fieldValue: Condition[keyof Condition]) => {
     onChange({ ...value, [field]: fieldValue } as Condition);
   };
 

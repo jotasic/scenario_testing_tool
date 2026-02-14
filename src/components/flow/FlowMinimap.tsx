@@ -19,7 +19,7 @@ export default function FlowMinimap({
   return (
     <MiniMap
       nodeColor={(node) => {
-        const nodeData = node.data as any;
+        const nodeData = node.data as { status?: string } | undefined;
         const status = nodeData?.status;
 
         // Color based on execution status
