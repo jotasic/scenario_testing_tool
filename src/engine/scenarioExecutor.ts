@@ -189,7 +189,7 @@ export class ScenarioExecutor {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.addLog('error', `Execution failed: ${message}`, { error });
+      this.addLog('error', `Execution failed: ${message}`, { error: serializeError(error) });
 
       if (stopOnError) {
         this.setStatus('failed');
@@ -407,7 +407,7 @@ export class ScenarioExecutor {
           const message = error instanceof Error ? error.message : String(error);
           this.addLog('warn', `Background request failed: ${message}`, {
             stepId: step.id,
-            error,
+            error: serializeError(error),
           });
         });
 

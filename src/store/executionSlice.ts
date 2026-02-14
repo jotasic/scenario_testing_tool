@@ -14,6 +14,7 @@ import type {
 } from '@/types';
 import axios from 'axios';
 import type { AxiosError } from 'axios';
+import { serializeError } from '@/engine/httpClient';
 
 interface ExecutionState {
   context: ExecutionContext | null;
@@ -70,7 +71,7 @@ export const executeHttpRequest = createAsyncThunk(
       return rejectWithValue({
         code: 'UNKNOWN_ERROR',
         message: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: error,
+        details: serializeError(error),
       });
     }
   }
