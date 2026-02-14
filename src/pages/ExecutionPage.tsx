@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Box, Paper, Tabs, Tab, IconButton, Tooltip, Stack } from '@mui/material';
+import { Box, Tabs, Tab, IconButton, Tooltip, Stack } from '@mui/material';
 import { FlowCanvas } from '@/components/flow';
 import { FlowBreadcrumbs, type NavigationLevel } from '@/components/flow/FlowBreadcrumbs';
 import { ResizableDetailPanel } from '@/components/layout/ResizableDetailPanel';
@@ -200,18 +200,17 @@ export function ExecutionPage() {
 
   return (
     <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
-      {/* Top Section: Execution Controls - Full Width */}
-      <Paper
-        elevation={0}
+      {/* Top Section: Execution Controls - Compact Toolbar */}
+      <Box
         sx={{
-          p: 2,
           borderBottom: 1,
           borderColor: 'divider',
           flexShrink: 0,
+          bgcolor: 'background.paper',
         }}
       >
         <ExecutionControls params={params} />
-      </Paper>
+      </Box>
 
       {/* Main Content: Flow + Right Panel */}
       <Box sx={{ flexGrow: 1, display: 'flex', overflow: 'hidden' }}>

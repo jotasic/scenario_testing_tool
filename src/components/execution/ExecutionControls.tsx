@@ -1,6 +1,6 @@
 /**
  * ExecutionControls Component
- * Main execution control panel with start/pause/stop/reset controls
+ * Compact toolbar with execution status and start/pause/stop/reset controls
  */
 
 import {
@@ -9,8 +9,9 @@ import {
   Chip,
   Stack,
   Typography,
-  Paper,
-  Divider,
+  IconButton,
+  Tooltip,
+  LinearProgress,
 } from '@mui/material';
 import {
   PlayArrow,
@@ -54,7 +55,6 @@ export function ExecutionControls({ params: externalParams }: ExecutionControlsP
   const scenario = useCurrentScenario();
   const stats = useExecutionStatistics();
 
-  // Use the execution hook to control the engine
   const {
     executeScenario,
     pauseExecution: pause,
@@ -64,29 +64,16 @@ export function ExecutionControls({ params: externalParams }: ExecutionControlsP
 
   const handleStart = () => {
     if (!scenario) return;
-
-    // Execute scenario with external params (from ExecutionPage) or context params
     executeScenario(
       externalParams || context?.params || {},
       context?.stepModeOverrides || {}
     );
   };
 
-  const handlePause = () => {
-    pause();
-  };
-
-  const handleResume = () => {
-    resume();
-  };
-
-  const handleStop = () => {
-    stop();
-  };
-
-  const handleReset = () => {
-    dispatch(resetExecution());
-  };
+  const handlePause = () => pause();
+  const handleResume = () => resume();
+  const handleStop = () => stop();
+  const handleReset = () => dispatch(resetExecution());
 
   const isIdle = status === 'idle';
   const isRunning = status === 'running';
@@ -94,126 +81,139 @@ export function ExecutionControls({ params: externalParams }: ExecutionControlsP
   const isCompleted = status === 'completed' || status === 'failed' || status === 'cancelled';
 
   const statusConfig = STATUS_CONFIG[status];
+  const progressPercent = stats.totalSteps > 0
+    ? (stats.completedSteps / stats.totalSteps) * 100
+    : 0;
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Stack spacing={2}>
-        {/* Header with Status */}
-        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-          <Typography variant="h6">Execution Controls</Typography>
-          <Chip
-            label={statusConfig.label}
-            color={statusConfig.color}
-            size="small"
-          />
-        </Stack>
+    <Box>
+      {/* Compact Toolbar - Single Row */}
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        sx={{ px: 1, py: 0.5 }}
+      >
+        {/* Status Chip */}
+        <Chip
+          label={statusConfig.label}
+          color={statusConfig.color}
+          size="small"
+          sx={{ minWidth: 80 }}
+        />
 
-        <Divider />
+        {/* Progress Info (when running or completed) */}
+        {context && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 50 }}>
+              {stats.completedSteps}/{stats.totalSteps}
+            </Typography>
+            {stats.failedSteps > 0 && (
+              <Typography variant="body2" color="error" sx={{ fontSize: '0.75rem' }}>
+                ({stats.failedSteps} failed)
+              </Typography>
+            )}
+          </Stack>
+        )}
 
-        {/* Control Buttons */}
-        <Stack direction="row" spacing={1}>
-          {/* Start/Resume Button */}
-          {(isIdle || isPaused) && (
+        {/* Duration */}
+        {context?.startedAt && (
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+            {isCompleted && context.completedAt
+              ? `${Math.round(stats.duration / 1000)}s`
+              : `${Math.round((Date.now() - new Date(context.startedAt).getTime()) / 1000)}s`}
+          </Typography>
+        )}
+
+        {/* Spacer */}
+        <Box sx={{ flexGrow: 1 }} />
+
+        {/* Control Buttons - Compact */}
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          {/* Start Button */}
+          {isIdle && (
             <Button
               variant="contained"
               color="primary"
+              size="small"
               startIcon={<PlayArrow />}
-              onClick={isIdle ? handleStart : handleResume}
+              onClick={handleStart}
               disabled={!scenario}
-              fullWidth
+              sx={{ minWidth: 90 }}
             >
-              {isIdle ? 'Start' : 'Resume'}
+              Start
+            </Button>
+          )}
+
+          {/* Resume Button */}
+          {isPaused && (
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<PlayArrow />}
+              onClick={handleResume}
+              sx={{ minWidth: 90 }}
+            >
+              Resume
             </Button>
           )}
 
           {/* Pause Button */}
           {isRunning && (
-            <Button
-              variant="contained"
-              color="warning"
-              startIcon={<Pause />}
-              onClick={handlePause}
-              fullWidth
-            >
-              Pause
-            </Button>
+            <Tooltip title="Pause">
+              <IconButton
+                color="warning"
+                onClick={handlePause}
+                size="small"
+                sx={{
+                  bgcolor: 'warning.main',
+                  color: 'warning.contrastText',
+                  '&:hover': { bgcolor: 'warning.dark' }
+                }}
+              >
+                <Pause fontSize="small" />
+              </IconButton>
+            </Tooltip>
           )}
 
           {/* Stop Button */}
           {(isRunning || isPaused) && (
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<Stop />}
-              onClick={handleStop}
-            >
-              Stop
-            </Button>
+            <Tooltip title="Stop">
+              <IconButton
+                color="error"
+                onClick={handleStop}
+                size="small"
+              >
+                <Stop fontSize="small" />
+              </IconButton>
+            </Tooltip>
           )}
 
           {/* Reset Button */}
           {isCompleted && (
             <Button
-              variant="contained"
+              variant="outlined"
+              size="small"
               startIcon={<Refresh />}
               onClick={handleReset}
-              fullWidth
+              sx={{ minWidth: 80 }}
             >
               Reset
             </Button>
           )}
         </Stack>
-
-        {/* Progress Info */}
-        {context && (
-          <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Progress
-            </Typography>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Typography variant="h6">
-                {stats.completedSteps} / {stats.totalSteps}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                steps completed
-              </Typography>
-            </Stack>
-            {stats.failedSteps > 0 && (
-              <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
-                {stats.failedSteps} failed
-              </Typography>
-            )}
-            {stats.skippedSteps > 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {stats.skippedSteps} skipped
-              </Typography>
-            )}
-          </Box>
-        )}
-
-        {/* Current Step Info */}
-        {context?.currentStepId && (
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Current Step
-            </Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-              {context.currentStepId}
-            </Typography>
-          </Box>
-        )}
-
-        {/* Duration */}
-        {context?.startedAt && (
-          <Typography variant="caption" color="text.secondary">
-            {isCompleted && context.completedAt
-              ? `Duration: ${Math.round(stats.duration / 1000)}s`
-              : `Running for ${Math.round(
-                  (Date.now() - new Date(context.startedAt).getTime()) / 1000
-                )}s`}
-          </Typography>
-        )}
       </Stack>
-    </Paper>
+
+      {/* Progress Bar (only when running or has progress) */}
+      {context && stats.totalSteps > 0 && (
+        <LinearProgress
+          variant="determinate"
+          value={progressPercent}
+          color={stats.failedSteps > 0 ? 'error' : 'primary'}
+          sx={{ height: 2 }}
+        />
+      )}
+    </Box>
   );
 }
