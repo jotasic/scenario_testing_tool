@@ -84,6 +84,8 @@ Manages execution runtime state, results, logs, and lifecycle.
 - `resumeExecution()` - Resume a paused execution
 - `stopExecution(status)` - Stop execution (completed/failed/cancelled)
 - `resetExecution()` - Clear current execution
+- `setExecutor(executor)` - Set the ScenarioExecutor instance
+- `clearExecutor()` - Clear the executor
 - `setCurrentStep(stepId)` - Set the currently executing step
 - `updateStepResult(result)` - Update a step's execution result
 - `saveResponse({ key, data })` - Save a response for variable resolution
@@ -100,8 +102,7 @@ Manages execution runtime state, results, logs, and lifecycle.
 - `removeFromHistory(id)` - Remove a specific execution from history
 - `setMaxHistorySize(size)` - Set maximum history size
 
-**Async Thunks:**
-- `executeHttpRequest({ url, method, headers, body, timeout })` - Execute an HTTP request
+**Note:** HTTP requests are handled by the ScenarioExecutor engine, not Redux thunks. See the execution engine documentation for details.
 
 **Selectors:**
 - `useExecutionContext()` - Get the current execution context
@@ -239,31 +240,31 @@ function ScenarioViewer() {
 ### Executing a Scenario
 
 ```tsx
-import { useAppDispatch } from '@/store/hooks';
-import { startExecution, executeHttpRequest } from '@/store/executionSlice';
+import { useScenarioExecution } from '@/hooks/useScenarioExecution';
+import { useCurrentScenario } from '@/store/hooks';
 
 function ExecutionController() {
-  const dispatch = useAppDispatch();
+  const scenario = useCurrentScenario();
+  const { execute, isExecuting, executionContext } = useScenarioExecution();
 
   const handleExecute = async () => {
-    // Start execution
-    dispatch(startExecution({
-      scenarioId: 'scn_123',
-      params: { userId: '456' },
-    }));
+    if (!scenario) return;
 
-    // Execute HTTP request
-    const result = await dispatch(executeHttpRequest({
-      url: 'https://api.example.com/users/456',
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 30000,
-    }));
-
-    console.log(result.payload);
+    // Execute scenario through the engine
+    // HTTP requests are handled automatically by ScenarioExecutor
+    await execute(scenario, { userId: '456' });
   };
 
-  return <button onClick={handleExecute}>Execute</button>;
+  return (
+    <div>
+      <button onClick={handleExecute} disabled={isExecuting}>
+        {isExecuting ? 'Executing...' : 'Execute Scenario'}
+      </button>
+      {executionContext && (
+        <div>Status: {executionContext.status}</div>
+      )}
+    </div>
+  );
 }
 ```
 

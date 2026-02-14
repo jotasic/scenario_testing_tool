@@ -20,8 +20,8 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         // Ignore these paths in the state for serialization checks
-        // This is useful for storing non-serializable data like Dates or functions
-        ignoredActions: ['execution/executeHttpRequest/fulfilled', 'execution/setExecutor'],
+        // This is useful for storing non-serializable data like ScenarioExecutor instances
+        ignoredActions: ['execution/setExecutor'],
         ignoredPaths: ['execution.context.responses', 'execution.executor'],
       },
     }),

@@ -3,7 +3,7 @@
  * Manages runtime execution state, results, logs, and execution lifecycle
  */
 
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type {
   ExecutionContext,
@@ -12,9 +12,6 @@ import type {
   LoopContext,
   ExecutionMode,
 } from '@/types';
-import axios from 'axios';
-import type { AxiosError } from 'axios';
-import { serializeError } from '@/engine/httpClient';
 import type { ScenarioExecutor } from '@/engine';
 
 interface ExecutionState {
@@ -30,55 +27,6 @@ const initialState: ExecutionState = {
   maxHistorySize: 50,
   executor: null,
 };
-
-// Async thunk for making HTTP requests
-export const executeHttpRequest = createAsyncThunk(
-  'execution/executeHttpRequest',
-  async (
-    payload: {
-      url: string;
-      method: string;
-      headers: Record<string, string>;
-      body?: unknown;
-      timeout?: number;
-    },
-    { rejectWithValue }
-  ) => {
-    try {
-      const startTime = Date.now();
-      const response = await axios({
-        url: payload.url,
-        method: payload.method,
-        headers: payload.headers,
-        data: payload.body,
-        timeout: payload.timeout || 30000,
-      });
-      const duration = Date.now() - startTime;
-
-      return {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers as Record<string, string>,
-        data: response.data,
-        duration,
-      };
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError;
-        return rejectWithValue({
-          code: axiosError.code || 'REQUEST_FAILED',
-          message: axiosError.message,
-          details: axiosError.response?.data,
-        });
-      }
-      return rejectWithValue({
-        code: 'UNKNOWN_ERROR',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: serializeError(error),
-      });
-    }
-  }
-);
 
 const executionSlice = createSlice({
   name: 'execution',
@@ -263,51 +211,6 @@ const executionSlice = createSlice({
         state.history = state.history.slice(0, action.payload);
       }
     },
-  },
-  extraReducers: builder => {
-    builder
-      .addCase(executeHttpRequest.pending, (state, action) => {
-        // Request started - can add logging here if needed
-        if (state.context) {
-          const log: ExecutionLog = {
-            id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            timestamp: new Date().toISOString(),
-            level: 'info',
-            message: `HTTP ${action.meta.arg.method} ${action.meta.arg.url}`,
-          };
-          state.context.logs.push(log);
-        }
-      })
-      .addCase(executeHttpRequest.fulfilled, (state, action) => {
-        // Request succeeded
-        if (state.context) {
-          const log: ExecutionLog = {
-            id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            timestamp: new Date().toISOString(),
-            level: 'info',
-            message: `Response received: ${action.payload.status} ${action.payload.statusText} (${action.payload.duration}ms)`,
-            data: action.payload,
-          };
-          state.context.logs.push(log);
-        }
-      })
-      .addCase(executeHttpRequest.rejected, (state, action) => {
-        // Request failed
-        if (state.context) {
-          const log: ExecutionLog = {
-            id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            timestamp: new Date().toISOString(),
-            level: 'error',
-            message: `Request failed: ${
-              action.payload && typeof action.payload === 'object' && 'message' in action.payload
-                ? String(action.payload.message)
-                : 'Unknown error'
-            }`,
-            data: action.payload,
-          };
-          state.context.logs.push(log);
-        }
-      });
   },
 });
 
