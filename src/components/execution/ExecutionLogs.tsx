@@ -35,6 +35,7 @@ import { useExecutionContext, useAppDispatch, useAppSelector } from '@/store/hoo
 import { clearLogs } from '@/store/executionSlice';
 import { setLogFilterLevel } from '@/store/uiSlice';
 import type { ExecutionLog } from '@/types';
+import type { LoopIterationSnapshot } from '@/types/execution';
 import { useState, useEffect, useRef, useMemo } from 'react';
 
 const LOG_LEVEL_CONFIG = {
@@ -46,13 +47,19 @@ const LOG_LEVEL_CONFIG = {
 
 interface LogItemProps {
   log: ExecutionLog;
+  loopContext?: LoopIterationSnapshot[];
 }
 
-function LogItem({ log }: LogItemProps) {
+function LogItem({ log, loopContext }: LogItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const config = LOG_LEVEL_CONFIG[log.level];
   const Icon = config.icon;
+
+  // Format loop context for display
+  const formatLoopContext = (loops: LoopIterationSnapshot[]): string => {
+    return loops.map(l => `${l.currentIteration}/${l.totalIterations}`).join(' > ');
+  };
 
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
@@ -141,7 +148,7 @@ function LogItem({ log }: LogItemProps) {
               sx={{ mt: 0.5, flexShrink: 0 }}
             />
             <Box flex={1} minWidth={0}>
-              <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+              <Stack direction="row" spacing={1} alignItems="center" mb={0.5} flexWrap="wrap">
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -162,6 +169,26 @@ function LogItem({ log }: LogItemProps) {
                     variant="outlined"
                     sx={{ height: 18, fontSize: '0.625rem' }}
                   />
+                )}
+                {loopContext && loopContext.length > 0 && (
+                  <Tooltip
+                    title={`Loop context: ${loopContext.map((l, idx) => `Level ${idx + 1}: ${l.currentIteration}/${l.totalIterations}`).join(', ')}`}
+                  >
+                    <Chip
+                      label={`🔁 ${formatLoopContext(loopContext)}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      sx={{
+                        height: 18,
+                        fontSize: '0.625rem',
+                        fontFamily: 'monospace',
+                        '& .MuiChip-label': {
+                          px: 0.5,
+                        },
+                      }}
+                    />
+                  </Tooltip>
                 )}
               </Stack>
               <Typography
@@ -231,6 +258,13 @@ export function ExecutionLogs() {
   const filterLevel = useAppSelector(state => state.ui.logFilterLevel);
   const autoScrollLogs = useAppSelector(state => state.ui.autoScrollLogs);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Get loop context for each log from step results
+  const getLoopContextForLog = (log: ExecutionLog): LoopIterationSnapshot[] | undefined => {
+    if (!log.stepId || !context) return undefined;
+    const stepResult = context.stepResults[log.stepId];
+    return stepResult?.loopContext;
+  };
 
   const filteredLogs = useMemo(() => {
     if (!context) return [];
@@ -369,7 +403,7 @@ export function ExecutionLogs() {
         ) : (
           <List sx={{ p: 1 }}>
             {filteredLogs.map(log => (
-              <LogItem key={log.id} log={log} />
+              <LogItem key={log.id} log={log} loopContext={getLoopContextForLog(log)} />
             ))}
           </List>
         )}

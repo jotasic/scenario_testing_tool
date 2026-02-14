@@ -65,6 +65,7 @@ export function LoopIterationIndicator({
     <Box sx={{ pl: `${indentPx}px` }}>
       <Stack spacing={showProgressBar ? 0.5 : 0}>
         <Chip
+          key={`iteration-${loopState.currentIteration}`}
           icon={<LoopIcon sx={{ fontSize: iconSize }} />}
           label={
             <Typography
@@ -85,6 +86,16 @@ export function LoopIterationIndicator({
             '& .MuiChip-label': {
               px: 1,
             },
+            '@keyframes iterationChange': {
+              '0%': {
+                backgroundColor: 'success.light',
+                transform: 'scale(1.05)',
+              },
+              '100%': {
+                transform: 'scale(1)',
+              },
+            },
+            animation: 'iterationChange 0.3s ease-out',
           }}
         />
 

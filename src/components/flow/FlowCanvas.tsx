@@ -21,12 +21,14 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Box, Button, Tooltip } from '@mui/material';
+import { Box, Button, Tooltip, Paper } from '@mui/material';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import type { Scenario, Step, StepExecutionResult } from '@/types';
 import { tfxNodeTypes } from './nodes';
 import { getLayoutedElements } from '@/utils/layoutUtils';
 import TFXEdge from './edges/TFXEdge';
+import { NestedLoopBreadcrumb } from '@/components/execution/NestedLoopBreadcrumb';
+import { useExecutionContext } from '@/store/hooks';
 
 interface FlowCanvasProps {
   scenario: Scenario;
@@ -246,10 +248,14 @@ function FlowCanvasInner({
   cutStepId,
 }: FlowCanvasProps) {
   const { fitView } = useReactFlow();
+  const executionContext = useExecutionContext();
 
   // Drag state management
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOverContainerId, setDragOverContainerId] = useState<string | null>(null);
+
+  // Check if there are active loops
+  const hasActiveLoops = executionContext?.activeLoopStack && executionContext.activeLoopStack.length > 0;
 
   // Edge types (TFX only)
   const edgeTypes = useMemo(
@@ -566,13 +572,33 @@ function FlowCanvasInner({
         },
       }}
     >
+      {/* Loop Progress Overlay - Top Right */}
+      {hasActiveLoops && (
+        <Paper
+          elevation={3}
+          sx={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 11,
+            p: 1.5,
+            maxWidth: 400,
+            backgroundColor: 'background.paper',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <NestedLoopBreadcrumb maxDisplayDepth={3} />
+        </Paper>
+      )}
+
       {/* Control Panel */}
       <Box
         sx={{
           position: 'absolute',
-          top: 16,
+          top: hasActiveLoops ? 72 : 16,
           right: 16,
           zIndex: 10,
+          transition: 'top 0.3s ease',
         }}
       >
         {/* Auto Layout Button */}
