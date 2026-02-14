@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { ConfigPage } from '@/pages/ConfigPage';
 import { ExecutionPage } from '@/pages/ExecutionPage';
 import { ImportExportDialog } from '@/components/common/ImportExportDialog';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useUIMode } from '@/store/hooks';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -127,8 +128,22 @@ function AppRouter() {
       <AppLayout onSave={handleSave} onLoad={handleLoad} onSettings={handleSettings}>
         <Routes>
           <Route path="/" element={<Navigate to="/config" replace />} />
-          <Route path="/config" element={<ConfigPage />} />
-          <Route path="/execution" element={<ExecutionPage />} />
+          <Route
+            path="/config"
+            element={
+              <ErrorBoundary fallbackMessage="Configuration panel encountered an error">
+                <ConfigPage />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/execution"
+            element={
+              <ErrorBoundary fallbackMessage="Execution panel encountered an error">
+                <ExecutionPage />
+              </ErrorBoundary>
+            }
+          />
           <Route path="*" element={<Navigate to="/config" replace />} />
         </Routes>
       </AppLayout>
