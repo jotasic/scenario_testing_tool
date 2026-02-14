@@ -3,7 +3,7 @@
  * Configuration mode page with 3-column resizable layout: Sidebar - Editor - Graph
  */
 
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -600,8 +600,21 @@ export function ConfigPage() {
 
   /**
    * Keyboard shortcut handler for copy/cut/paste
-   * Optimized to minimize re-registration by using dispatch directly
+   * Stabilized using refs to prevent re-registration on every render
    */
+  // Create stable refs for handler functions
+  const handleCopyStepRef = useRef(handleCopyStep);
+  const handleCutStepRef = useRef(handleCutStep);
+  const handlePasteStepRef = useRef(handlePasteStep);
+
+  // Update refs when handlers change
+  useEffect(() => {
+    handleCopyStepRef.current = handleCopyStep;
+    handleCutStepRef.current = handleCutStep;
+    handlePasteStepRef.current = handlePasteStep;
+  }, [handleCopyStep, handleCutStep, handlePasteStep]);
+
+  // Register keyboard event listener once
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Check if the target is an input element
@@ -626,25 +639,25 @@ export function ConfigPage() {
       // Copy: Ctrl+C or Cmd+C
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault();
-        handleCopyStep();
+        handleCopyStepRef.current();
       }
 
       // Cut: Ctrl+X or Cmd+X
       if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
         e.preventDefault();
-        handleCutStep();
+        handleCutStepRef.current();
       }
 
       // Paste: Ctrl+V or Cmd+V
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         e.preventDefault();
-        handlePasteStep();
+        handlePasteStepRef.current();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dispatch, handleCopyStep, handleCutStep, handlePasteStep]);
+  }, [dispatch]); // Only dispatch in dependencies - registers once!
 
   /**
    * Handle right-click on step tree item
