@@ -10,3 +10,5 @@ export { ExecutionProgressTable } from './ExecutionProgressTable';
 export { StepResultViewer } from './StepResultViewer';
 export { StepDetailPanel } from './StepDetailPanel';
 export { ManualStepDialog } from './ManualStepDialog';
+export { LoopIterationIndicator } from './LoopIterationIndicator';
+export { NestedLoopBreadcrumb } from './NestedLoopBreadcrumb';
