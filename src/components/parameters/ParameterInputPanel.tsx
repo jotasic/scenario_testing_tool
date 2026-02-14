@@ -22,6 +22,7 @@ import {
   CheckCircle as ValidateIcon,
   Save as ApplyIcon,
   RestartAlt as ResetIcon,
+  FormatAlignLeft as FormatIcon,
 } from '@mui/icons-material';
 import { DynamicParameterForm } from './DynamicParameterForm';
 import type { ParameterSchema, ParameterValue } from '@/types';
@@ -51,6 +52,7 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isJsonEditing, setIsJsonEditing] = useState(false);
   const isInitialized = useRef(false);
 
   // Initialize with default values from schema (only once on mount)
@@ -72,13 +74,13 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
     isInitialized.current = true;
   }, [schemas, initialValues]);
 
-  // Sync form to JSON when switching modes
+  // Sync form to JSON when switching modes or when form changes (but not while editing JSON)
   useEffect(() => {
-    if (mode === 'json') {
+    if (mode === 'json' && !isJsonEditing) {
       setJsonValue(JSON.stringify(formValues, null, 2));
       setJsonError(null);
     }
-  }, [mode, formValues]);
+  }, [mode, formValues, isJsonEditing]);
 
   const handleModeChange = useCallback((_: React.MouseEvent, newMode: EditorMode | null) => {
     if (newMode === null) return;
@@ -105,9 +107,8 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
 
   const handleJsonChange = useCallback((value: string) => {
     setJsonValue(value);
-    setHasChanges(true);
 
-    // Try to parse JSON for immediate validation
+    // Real-time validation
     try {
       JSON.parse(value);
       setJsonError(null);
@@ -115,6 +116,30 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
       setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
     }
   }, []);
+
+  const handleJsonBlur = useCallback(() => {
+    setIsJsonEditing(false);
+    setHasChanges(true);
+
+    // Parse and update form values on blur
+    try {
+      const parsed = JSON.parse(jsonValue);
+      setFormValues(parsed);
+      setJsonError(null);
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+    }
+  }, [jsonValue]);
+
+  const handleFormatJson = useCallback(() => {
+    try {
+      const parsed = JSON.parse(jsonValue);
+      setJsonValue(JSON.stringify(parsed, null, 2));
+      setJsonError(null);
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+    }
+  }, [jsonValue]);
 
   const handleValidate = useCallback(() => {
     const errors: string[] = [];
@@ -295,40 +320,61 @@ export const ParameterInputPanel: React.FC<ParameterInputPanelProps> = ({
 
         {/* JSON mode */}
         {mode === 'json' && schemas.length > 0 && (
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 0,
-              overflow: 'hidden',
-              resize: 'both',
-              minHeight: '400px',
-              minWidth: '100%',
-            }}
-          >
-            <Box
-              component="textarea"
-              value={jsonValue}
-              onChange={(e) => handleJsonChange(e.currentTarget.value)}
-              aria-label="JSON editor"
+          <Box sx={{ position: 'relative' }}>
+            <Paper
+              variant="outlined"
               sx={{
-                width: '100%',
-                height: '100%',
-                minHeight: '400px',
-                border: 'none',
-                outline: 'none',
-                fontFamily: 'monospace',
-                fontSize: '0.875rem',
-                padding: 2,
-                resize: 'both',
-                backgroundColor: 'transparent',
-                color: 'text.primary',
-                '&::placeholder': {
-                  color: 'text.secondary',
-                  opacity: 0.7,
-                },
+                p: 0,
+                overflow: 'hidden',
+                position: 'relative',
               }}
-            />
-          </Paper>
+            >
+              <Box
+                component="textarea"
+                value={jsonValue}
+                onFocus={() => setIsJsonEditing(true)}
+                onChange={(e) => handleJsonChange(e.currentTarget.value)}
+                onBlur={handleJsonBlur}
+                aria-label="JSON editor"
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  minHeight: '500px',
+                  maxHeight: '800px',
+                  border: 'none',
+                  outline: jsonError ? '2px solid' : 'none',
+                  outlineColor: 'error.main',
+                  fontFamily: 'monospace',
+                  fontSize: '0.875rem',
+                  padding: 2,
+                  paddingTop: 6,
+                  resize: 'vertical',
+                  overflow: 'auto',
+                  backgroundColor: 'transparent',
+                  color: 'text.primary',
+                  '&::placeholder': {
+                    color: 'text.secondary',
+                    opacity: 0.7,
+                  },
+                }}
+              />
+              <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<FormatIcon />}
+                  onClick={handleFormatJson}
+                  disabled={!!jsonError}
+                  sx={{
+                    bgcolor: 'background.paper',
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  Format
+                </Button>
+              </Box>
+            </Paper>
+          </Box>
         )}
       </Box>
 

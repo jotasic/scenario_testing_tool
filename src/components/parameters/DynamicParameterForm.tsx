@@ -11,6 +11,7 @@ import {
   FormControlLabel,
   Stack,
   MenuItem,
+  IconButton,
 } from '@mui/material';
 import type { ParameterSchema, ParameterValue } from '@/types';
 import { FieldLabel } from './FieldLabel';
@@ -236,13 +237,42 @@ function renderArrayField(
   // Fallback to JSON editor for arrays without defined itemSchema
   const [localValue, setLocalValue] = React.useState(JSON.stringify(value, null, 2));
   const [isEditing, setIsEditing] = React.useState(false);
+  const [jsonError, setJsonError] = React.useState<string | null>(null);
 
   // Only update local value when not editing and external value changes
   React.useEffect(() => {
     if (!isEditing) {
       setLocalValue(JSON.stringify(value, null, 2));
+      setJsonError(null);
     }
   }, [value, isEditing]);
+
+  const handleFormat = () => {
+    try {
+      const parsed = JSON.parse(localValue);
+      setLocalValue(JSON.stringify(parsed, null, 2));
+      setJsonError(null);
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    try {
+      const parsed = JSON.parse(localValue);
+      if (Array.isArray(parsed)) {
+        onChange(schema.name, parsed);
+        setJsonError(null);
+      } else {
+        setJsonError('Value must be a JSON array');
+        setLocalValue(JSON.stringify(value, null, 2));
+      }
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+      setLocalValue(JSON.stringify(value, null, 2));
+    }
+  };
 
   return (
     <Box>
@@ -252,36 +282,56 @@ function renderArrayField(
         required={schema.required}
         description={schema.description}
       />
-      <TextField
-        fullWidth
-        size="small"
-        multiline
-        rows={6}
-        value={localValue}
-        onFocus={() => setIsEditing(true)}
-        onChange={(e) => setLocalValue(e.target.value)}
-        onBlur={() => {
-          setIsEditing(false);
-          try {
-            const parsed = JSON.parse(localValue);
-            if (Array.isArray(parsed)) {
-              onChange(schema.name, parsed);
+      <Box sx={{ position: 'relative' }}>
+        <TextField
+          fullWidth
+          size="small"
+          multiline
+          minRows={8}
+          maxRows={20}
+          value={localValue}
+          onFocus={() => setIsEditing(true)}
+          onChange={(e) => {
+            setLocalValue(e.target.value);
+            // Real-time validation
+            try {
+              JSON.parse(e.target.value);
+              setJsonError(null);
+            } catch (error) {
+              setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
             }
-          } catch {
-            setLocalValue(JSON.stringify(value, null, 2));
-          }
-        }}
-        placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '[\n  "item1",\n  "item2"\n]'}
-        required={schema.required}
-        helperText="Enter a valid JSON array"
-        sx={{
-          '& .MuiInputBase-input': {
-            fontFamily: 'monospace',
-            fontSize: '0.8rem',
-            color: 'text.primary',
-          },
-        }}
-      />
+          }}
+          onBlur={handleBlur}
+          placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '[\n  "item1",\n  "item2"\n]'}
+          required={schema.required}
+          error={!!jsonError}
+          helperText={jsonError || 'Enter a valid JSON array'}
+          sx={{
+            '& .MuiInputBase-root': {
+              resize: 'vertical',
+              overflow: 'auto',
+            },
+            '& .MuiInputBase-input': {
+              fontFamily: 'monospace',
+              fontSize: '0.875rem',
+              color: 'text.primary',
+            },
+          }}
+        />
+        <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+          <IconButton
+            size="small"
+            onClick={handleFormat}
+            title="Format JSON"
+            sx={{
+              bgcolor: 'background.paper',
+              '&:hover': { bgcolor: 'action.hover' },
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Format</span>
+          </IconButton>
+        </Box>
+      </Box>
     </Box>
   );
 }
@@ -320,13 +370,42 @@ function renderObjectField(
   // Fallback to JSON editor for objects without defined properties
   const [localValue, setLocalValue] = React.useState(JSON.stringify(value, null, 2));
   const [isEditing, setIsEditing] = React.useState(false);
+  const [jsonError, setJsonError] = React.useState<string | null>(null);
 
   // Only update local value when not editing and external value changes
   React.useEffect(() => {
     if (!isEditing) {
       setLocalValue(JSON.stringify(value, null, 2));
+      setJsonError(null);
     }
   }, [value, isEditing]);
+
+  const handleFormat = () => {
+    try {
+      const parsed = JSON.parse(localValue);
+      setLocalValue(JSON.stringify(parsed, null, 2));
+      setJsonError(null);
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    try {
+      const parsed = JSON.parse(localValue);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        onChange(schema.name, parsed);
+        setJsonError(null);
+      } else {
+        setJsonError('Value must be a JSON object');
+        setLocalValue(JSON.stringify(value, null, 2));
+      }
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+      setLocalValue(JSON.stringify(value, null, 2));
+    }
+  };
 
   return (
     <Box>
@@ -336,34 +415,56 @@ function renderObjectField(
         required={schema.required}
         description={schema.description}
       />
-      <TextField
-        fullWidth
-        size="small"
-        multiline
-        rows={6}
-        value={localValue}
-        onFocus={() => setIsEditing(true)}
-        onChange={(e) => setLocalValue(e.target.value)}
-        onBlur={() => {
-          setIsEditing(false);
-          try {
-            const parsed = JSON.parse(localValue);
-            onChange(schema.name, parsed);
-          } catch {
-            setLocalValue(JSON.stringify(value, null, 2));
-          }
-        }}
-        placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '{\n  "key": "value"\n}'}
-        required={schema.required}
-        helperText="Enter a valid JSON object"
-        sx={{
-          '& .MuiInputBase-input': {
-            fontFamily: 'monospace',
-            fontSize: '0.8rem',
-            color: 'text.primary',
-          },
-        }}
-      />
+      <Box sx={{ position: 'relative' }}>
+        <TextField
+          fullWidth
+          size="small"
+          multiline
+          minRows={8}
+          maxRows={20}
+          value={localValue}
+          onFocus={() => setIsEditing(true)}
+          onChange={(e) => {
+            setLocalValue(e.target.value);
+            // Real-time validation
+            try {
+              JSON.parse(e.target.value);
+              setJsonError(null);
+            } catch (error) {
+              setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+            }
+          }}
+          onBlur={handleBlur}
+          placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '{\n  "key": "value"\n}'}
+          required={schema.required}
+          error={!!jsonError}
+          helperText={jsonError || 'Enter a valid JSON object'}
+          sx={{
+            '& .MuiInputBase-root': {
+              resize: 'vertical',
+              overflow: 'auto',
+            },
+            '& .MuiInputBase-input': {
+              fontFamily: 'monospace',
+              fontSize: '0.875rem',
+              color: 'text.primary',
+            },
+          }}
+        />
+        <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+          <IconButton
+            size="small"
+            onClick={handleFormat}
+            title="Format JSON"
+            sx={{
+              bgcolor: 'background.paper',
+              '&:hover': { bgcolor: 'action.hover' },
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Format</span>
+          </IconButton>
+        </Box>
+      </Box>
     </Box>
   );
 }
@@ -380,13 +481,39 @@ function renderAnyField(
     typeof value === 'string' ? value : JSON.stringify(value, null, 2)
   );
   const [isEditing, setIsEditing] = React.useState(false);
+  const [jsonError, setJsonError] = React.useState<string | null>(null);
 
   // Only update local value when not editing and external value changes
   React.useEffect(() => {
     if (!isEditing) {
       setLocalValue(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+      setJsonError(null);
     }
   }, [value, isEditing]);
+
+  const handleFormat = () => {
+    try {
+      const parsed = JSON.parse(localValue);
+      setLocalValue(JSON.stringify(parsed, null, 2));
+      setJsonError(null);
+    } catch (error) {
+      // If not JSON, keep as is (could be plain string)
+      setJsonError(null);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    try {
+      const parsed = JSON.parse(localValue);
+      onChange(schema.name, parsed);
+      setJsonError(null);
+    } catch {
+      // For 'any' type, allow plain strings
+      onChange(schema.name, localValue);
+      setJsonError(null);
+    }
+  };
 
   return (
     <Box>
@@ -396,33 +523,57 @@ function renderAnyField(
         required={schema.required}
         description={schema.description}
       />
-      <TextField
-        fullWidth
-        size="small"
-        multiline
-        rows={4}
-        value={localValue}
-        onFocus={() => setIsEditing(true)}
-        onChange={(e) => setLocalValue(e.target.value)}
-        onBlur={() => {
-          setIsEditing(false);
-          try {
-            const parsed = JSON.parse(localValue);
-            onChange(schema.name, parsed);
-          } catch {
-            onChange(schema.name, localValue);
-          }
-        }}
-        placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '{}'}
-        required={schema.required}
-        sx={{
-          '& .MuiInputBase-input': {
-            fontFamily: 'monospace',
-            fontSize: '0.875rem',
-            color: 'text.primary',
-          },
-        }}
-      />
+      <Box sx={{ position: 'relative' }}>
+        <TextField
+          fullWidth
+          size="small"
+          multiline
+          minRows={6}
+          maxRows={20}
+          value={localValue}
+          onFocus={() => setIsEditing(true)}
+          onChange={(e) => {
+            setLocalValue(e.target.value);
+            // Optional validation for any type
+            try {
+              JSON.parse(e.target.value);
+              setJsonError(null);
+            } catch {
+              // For 'any' type, this is not necessarily an error
+              setJsonError(null);
+            }
+          }}
+          onBlur={handleBlur}
+          placeholder={schema.defaultValue ? JSON.stringify(schema.defaultValue, null, 2) : '{}'}
+          required={schema.required}
+          error={!!jsonError}
+          helperText={jsonError || 'Enter any value (JSON or plain text)'}
+          sx={{
+            '& .MuiInputBase-root': {
+              resize: 'vertical',
+              overflow: 'auto',
+            },
+            '& .MuiInputBase-input': {
+              fontFamily: 'monospace',
+              fontSize: '0.875rem',
+              color: 'text.primary',
+            },
+          }}
+        />
+        <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+          <IconButton
+            size="small"
+            onClick={handleFormat}
+            title="Format JSON"
+            sx={{
+              bgcolor: 'background.paper',
+              '&:hover': { bgcolor: 'action.hover' },
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Format</span>
+          </IconButton>
+        </Box>
+      </Box>
     </Box>
   );
 }
