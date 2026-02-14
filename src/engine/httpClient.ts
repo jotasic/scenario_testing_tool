@@ -181,19 +181,43 @@ export function resolveRequestConfig(
   context: VariableContext
 ): HttpRequestConfig {
   // Handle body resolution specially to preserve types
-  // If body is a JSON string, parse it to object first, then resolve variables
-  // This ensures that ${params.number} resolves to a number, not a string
+  // Strategy:
+  // 1. If body is already an object, resolve variables directly (preserves types)
+  // 2. If body is a JSON string, try to parse it first, then resolve variables
+  // 3. If parsing fails (e.g., contains ${...} templates), resolve as string first,
+  //    then parse the result to get proper types
   let resolvedBody: unknown = undefined;
   if (config.body) {
     if (typeof config.body === 'string') {
       try {
-        // Parse JSON string to object first
+        // First, try to parse as valid JSON
         const parsedBody = JSON.parse(config.body);
         // Then resolve variables on the object (preserves types)
         resolvedBody = resolveVariables(parsedBody, context);
       } catch {
-        // Not valid JSON, resolve as string
-        resolvedBody = resolveVariables(config.body, context);
+        // JSON parsing failed - likely contains ${...} templates
+        // Resolve variables as string first
+        const resolvedString = resolveVariables(config.body, context) as string;
+
+        // Now try to parse the resolved string as JSON
+        // This converts the final result to proper types
+        if (typeof resolvedString === 'string') {
+          try {
+            resolvedBody = JSON.parse(resolvedString);
+          } catch (parseError) {
+            // JSON 파싱 실패 - body 템플릿에 문법 오류가 있음
+            const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+            throw new HttpRequestError(
+              `Request body JSON 파싱 실패: ${errorMessage}\n` +
+              `치환 후 body:\n${resolvedString.substring(0, 500)}${resolvedString.length > 500 ? '...' : ''}`,
+              undefined,
+              'Body Parse Error',
+              { originalBody: config.body, resolvedBody: resolvedString }
+            );
+          }
+        } else {
+          resolvedBody = resolvedString;
+        }
       }
     } else {
       // Body is already an object, resolve variables directly
