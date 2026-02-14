@@ -180,13 +180,34 @@ export function resolveRequestConfig(
   config: HttpRequestConfig,
   context: VariableContext
 ): HttpRequestConfig {
+  // Handle body resolution specially to preserve types
+  // If body is a JSON string, parse it to object first, then resolve variables
+  // This ensures that ${params.number} resolves to a number, not a string
+  let resolvedBody: unknown = undefined;
+  if (config.body) {
+    if (typeof config.body === 'string') {
+      try {
+        // Parse JSON string to object first
+        const parsedBody = JSON.parse(config.body);
+        // Then resolve variables on the object (preserves types)
+        resolvedBody = resolveVariables(parsedBody, context);
+      } catch {
+        // Not valid JSON, resolve as string
+        resolvedBody = resolveVariables(config.body, context);
+      }
+    } else {
+      // Body is already an object, resolve variables directly
+      resolvedBody = resolveVariables(config.body, context);
+    }
+  }
+
   return {
     method: config.method,
     url: resolveVariables(config.url, context) as string,
     headers: config.headers
       ? (resolveVariables(config.headers, context) as Record<string, string>)
       : undefined,
-    body: config.body ? resolveVariables(config.body, context) : undefined,
+    body: resolvedBody,
     queryParams: config.queryParams
       ? (resolveVariables(config.queryParams, context) as Record<string, string>)
       : undefined,
@@ -319,19 +340,10 @@ export async function makeHttpRequest(
     };
 
     // Add body for methods that support it
+    // Note: After resolveRequestConfig, body should already be an object (not JSON string)
+    // because resolveRequestConfig parses JSON strings and resolves variables on the object
     if (config.body && ['POST', 'PUT', 'PATCH'].includes(config.method)) {
-      // If body is a JSON string, parse it to ensure proper serialization
-      // This prevents double-encoding issues
-      if (typeof config.body === 'string') {
-        try {
-          axiosConfig.data = JSON.parse(config.body);
-        } catch {
-          // Not valid JSON string, send as-is (raw text)
-          axiosConfig.data = config.body;
-        }
-      } else {
-        axiosConfig.data = config.body;
-      }
+      axiosConfig.data = config.body;
     }
 
     const response = await axios(axiosConfig);
