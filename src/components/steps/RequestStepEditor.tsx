@@ -3,7 +3,7 @@
  * Editor for HTTP request step configuration
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -40,6 +40,21 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
   const [expandHeaders, setExpandHeaders] = useState(false);
   const [expandBranches, setExpandBranches] = useState(false);
   const [expandRetry, setExpandRetry] = useState(false);
+
+  // Body editing state - use focus/blur pattern to avoid input issues
+  const [bodyLocalValue, setBodyLocalValue] = useState(() =>
+    typeof step.body === 'string' ? step.body : JSON.stringify(step.body, null, 2)
+  );
+  const [isBodyEditing, setIsBodyEditing] = useState(false);
+
+  // Sync body from external changes when not editing
+  useEffect(() => {
+    if (!isBodyEditing) {
+      setBodyLocalValue(
+        typeof step.body === 'string' ? step.body : JSON.stringify(step.body, null, 2)
+      );
+    }
+  }, [step.body, isBodyEditing]);
 
   const handleHeaderChange = (index: number, field: keyof StepHeader, value: any) => {
     const newHeaders = [...step.headers];
@@ -186,12 +201,18 @@ export function RequestStepEditor({ step, onChange }: RequestStepEditorProps) {
       {['POST', 'PUT', 'PATCH'].includes(step.method) && (
         <TextField
           label="Request Body"
-          value={typeof step.body === 'string' ? step.body : JSON.stringify(step.body, null, 2)}
-          onChange={(e) => {
+          value={bodyLocalValue}
+          onFocus={() => setIsBodyEditing(true)}
+          onChange={(e) => setBodyLocalValue(e.target.value)}
+          onBlur={() => {
+            setIsBodyEditing(false);
             try {
-              onChange({ body: JSON.parse(e.target.value) });
+              // Try to parse as JSON
+              const parsed = JSON.parse(bodyLocalValue);
+              onChange({ body: parsed });
             } catch {
-              onChange({ body: e.target.value });
+              // If not valid JSON, store as string
+              onChange({ body: bodyLocalValue });
             }
           }}
           multiline

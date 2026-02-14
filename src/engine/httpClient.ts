@@ -264,7 +264,18 @@ export async function makeHttpRequest(
 
     // Add body for methods that support it
     if (config.body && ['POST', 'PUT', 'PATCH'].includes(config.method)) {
-      axiosConfig.data = config.body;
+      // If body is a JSON string, parse it to ensure proper serialization
+      // This prevents double-encoding issues
+      if (typeof config.body === 'string') {
+        try {
+          axiosConfig.data = JSON.parse(config.body);
+        } catch {
+          // Not valid JSON string, send as-is (raw text)
+          axiosConfig.data = config.body;
+        }
+      } else {
+        axiosConfig.data = config.body;
+      }
     }
 
     const response = await axios(axiosConfig);
